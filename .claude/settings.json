@@ -79,7 +79,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\.claude\\hooks\\pre-bash.ps1"
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File C:/Users/AMD/.claude/hooks/pre-bash.ps1"
           }
         ]
       }
@@ -90,13 +90,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\.claude\\hooks\\post-tool.ps1"
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File C:/Users/AMD/.claude/hooks/post-tool.ps1"
           }
         ]
       }
     ]
   },
   "env": {
-    "MORTY_DENYLIST": "%USERPROFILE%\\.claude\\skills\\safe-bash\\references\\denylist.yaml"
+    "MORTY_DENYLIST":     "C:/Users/AMD/.claude/skills/safe-bash/references/denylist.yaml",
+    "MORTY_MODEL":        "Qwen3-Coder-Next-GGUF",
+    "MORTY_PROJECT_ROOT": "C:/work/harness-sandbox"
   }
 }
