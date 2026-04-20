@@ -1,0 +1,38 @@
+# First Principles Post-Mortem — [problem-slug]
+
+## Problem
+
+What problem was being solved, and why did it matter?
+
+## Outcome
+
+What answer, design, fix, or decision was reached?
+
+## Breakthrough
+
+What first-principles insight unlocked progress?
+
+## Failed Paths
+
+List the dead ends, broken assumptions, or misleading hypotheses that were ruled out.
+
+## Ground Truths That Mattered Most
+
+- GT-1:
+- GT-2:
+- GT-3:
+
+## Reusable Heuristics
+
+- Heuristic 1:
+- Heuristic 2:
+
+## Candidate Durable Updates
+
+- Add to `domain-axioms.md`:
+- Update existing skill:
+- New skill to propose:
+
+## Handoff
+
+What should the next session know or do first?

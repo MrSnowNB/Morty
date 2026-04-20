@@ -1,85 +1,37 @@
-description: |
-  Activate this skill for complex, ambiguous, or high-stakes problems where standard approaches are insufficient. 
-  The agent must reason strictly from first principles, ground every step in verifiable fundamentals, 
-  pull relevant context from all available logs/history, and enter controlled recursive loops. 
-  These loops may spawn new sub-skills or modify existing ones to permanently extend the agent's capabilities.
+---
+name: first-principles
+description: Use this for complex, ambiguous, high-stakes, or novel problems where Morty must reason from bedrock truths, manage context pressure with an external scratchpad, recurse carefully into sub-problems, and leave behind reusable improvements after the solve.
+---
 
-  This skill turns problem-solving into a self-improving process: every deep solve should leave the agent smarter.
+# First Principles
 
-steps:
-  - name: "1. Context & Log Ingestion"
-    action: |
-      Before touching the problem:
-      - Scan conversation history, previous tool outputs, error logs, skill usage traces, and any project files.
-      - Extract: prior attempts, constraints discovered, patterns, user preferences, and failed approaches.
-      - Explicitly list "Known Context" and "Open Questions from Logs".
-      - If logs are empty or irrelevant, note that and proceed.
+## When to use
 
-  - name: "2. Problem Elicitation & Assumption Audit"
-    action: |
-      Ask the user (or derive from logs) for a precise problem statement.
-      Then:
-      - List every assumption embedded in the statement AND in the logs.
-      - For each assumption, ask: "Is this a fact, a belief, a convention, or a hidden constraint?"
-      - Flag and challenge any that are not first-principles level.
+- The user explicitly asks for first-principles thinking, reasoning from the ground up, or recursive decomposition.
+- The problem is hard, ambiguous, novel, or has resisted normal debugging.
+- The task is likely to overflow context unless intermediate state is written to disk.
+- Morty needs to produce not just an answer, but a reusable method, invariant, or skill improvement.
 
-  - name: "3. First-Principles Decomposition"
-    action: |
-      Break the problem into its absolute bedrock:
-      - Identify the fundamental truths/axioms of the domain (physics, logic, information theory, game theory, human psychology, etc.).
-      - State them explicitly with justification ("This is true because...").
-      - Remove all higher-level abstractions, jargon, and current-solution framing.
-      - Output a "First Principles List" (bullet points, numbered for traceability).
+## Steps
 
-  - name: "4. Recursive Sub-Problem Engine (Core Loop)"
-    action: |
-      While sub-problems remain:
-        a. Decompose current problem into the smallest solvable sub-problems.
-        b. For each sub-problem:
-           - If it is trivial or already solved in logs → solve directly and record.
-           - If it is complex:
-             - Check if an existing skill can handle it (or a close variant).
-             - If yes → invoke that skill (or a lightly adapted version).
-             - If no → **enter recursive call** to this same skill on the sub-problem (with reduced scope).
-        c. Track recursion depth, problem-size reduction, and convergence criteria.
-        d. If a sub-problem reveals a missing reusable capability → immediately design a new skill (see step 6).
-        e. Termination conditions: max depth reached, problem reduced to trivial size, user says "stop recursion", or diminishing returns detected.
+1. Create or refresh `$MORTY_PROJECT_ROOT/SCRATCH.md` from `templates/SCRATCH.md.template` before deep reasoning begins.
+2. Read the methodology in `references/methodology.md` and execute the phases in order.
+3. Treat `SCRATCH.md` as short-term working memory: write to it after each major phase, dead end, and solved sub-problem.
+4. Load only the reference material needed for the current phase to avoid context bloat.
+5. If the solve yields a reusable invariant, heuristic, or workflow, record it in the post-mortem and propose either a skill edit or a new skill.
 
-  - name: "5. Bottom-Up Solution Reconstruction"
-    action: |
-      Rebuild the answer strictly from the solved sub-problems + first principles.
-      - Every step must trace back to a listed first principle or verified sub-solution.
-      - Produce a "Reasoning Trace" that a third party could audit.
-      - Generate 2–4 distinct solution paths, each justified from first principles.
-      - Compare them on: correctness, robustness, resource cost, future-proofing, and alignment with user goals.
+## Files
 
-  - name: "6. Self-Improvement & Skill Synthesis (Mandatory)"
-    action: |
-      After any non-trivial solve:
-      - Reflect: "What new pattern, heuristic, or capability did we just discover?"
-      - If the pattern is reusable and not already covered by an existing skill:
-        - Write a new skill definition (use the exact same YAML format as this one).
-        - Include: description, steps, gotchas, and any new first-principles insights.
-      - If an existing skill was used sub-optimally → propose a precise edit to that skill.
-      - Output the new or modified skill in a ready-to-paste block.
-      - Log the skill creation event with a short rationale.
+- `references/methodology.md` — full phase engine, recursion rules, convergence checks, and self-improvement loop.
+- `references/domain-axioms.md` — reusable systems, software, networking, and agentic reasoning bedrock truths.
+- `references/assumption-table.md` — strict table format for assumption audits and Five Whys traces.
+- `templates/SCRATCH.md.template` — ephemeral short-term memory for the active solve.
+- `templates/POST-MORTEM.md.template` — structured reflection artifact written at the end.
 
-gotchas:
-  - First principles are domain-dependent. If you lack deep fundamentals in the area, explicitly call a "Domain Fundamentals Researcher" sub-skill or tool first.
-  - Logs can contain noise, outdated info, or model hallucinations — treat them as evidence, not scripture.
-  - Recursion risk: Always enforce strict termination (depth limit + size reduction). Never recurse more than 4–5 levels without user confirmation.
-  - Skill proliferation: Only create a new skill if it solves a class of problems, not a one-off instance. Prefer editing existing skills when possible.
-  - Ethical / value-laden problems: First principles may be thin. In those cases, treat user-stated values or societal axioms as the "first principles" and flag the limitation clearly.
-  - 80B Qwen specifics: Use very explicit chain-of-thought. Break every complex step into 3–5 micro-steps. Output intermediate "scratchpad" sections so the model can verify its own reasoning.
+## Gotchas
 
-activation_triggers:
-  - User explicitly says "first principles", "from the ground up", "recursive", or "build a skill for this".
-  - Problem is described as "hard", "stuck", "novel", or involves repeated failure.
-  - Agent detects it is about to give a shallow or cached answer.
-
-example_usage:
-  - Complex engineering trade-off
-  - Novel algorithm design
-  - Debugging a system where standard debugging failed
-  - Strategic decision under uncertainty
-  - Self-improvement of the agent's own skill library
+- Do not keep the entire solve in chat context; page state into `SCRATCH.md` instead.
+- Breadth-first challenge comes before depth-first recursion; do not dive into sub-problems until top-level assumptions have been stress-tested.
+- Recursion is only valid if the problem representation is shrinking. If not, pivot instead of going deeper.
+- Every major conclusion must trace to a numbered ground truth or a verified sub-result.
+- `SCRATCH.md` is disposable working memory; durable lessons belong in post-mortems, journals, or reusable skill artifacts.
