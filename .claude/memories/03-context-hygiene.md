@@ -8,6 +8,26 @@
 - When summarizing for compaction, preserve: project overview, current focus,
   recent decisions, next action. Discard everything else.
 
+## Pre-Action Gate
+
+Before any checkpoint, introspect, journal, or recovery action, answer these four questions in order:
+
+1. **What invariant must remain true?**
+2. **What state am I in now?**
+3. **What is the minimal safe action?**
+4. **What must I avoid after this action?**
+
+Example — session-end checkpoint:
+
+| Question | Answer |
+|----------|--------|
+| Invariant | `/checkpoint` must be the last meaningful action |
+| Current state | Task is complete; no anchor yet written |
+| Minimal safe action | Type `/checkpoint` directly |
+| Avoid after | Any Bash, Read, Grep, or Write tool call |
+
+**Rule: If a matching playbook exists in `.claude/playbooks/`, follow it before improvising.** Do not invent a procedure when a known-good one is available.
+
 ## Context Overflow Prevention
 
 The lemonade server hard-rejects requests that exceed the configured context
@@ -26,11 +46,12 @@ Rules to prevent overflow:
 - Never paste large file contents inline — always use `@path/to/file`.
 - First-principles sessions are high-risk for overflow. Write intermediate
   state to `SCRATCH.md` aggressively and compact between phases.
+- See playbook: `.claude/playbooks/context-overflow-recovery.md`
 
 ## Token Budgets (cold start)
 
 - Total memory injection at cold start: ≤ 20% of the active model context window.
-- `MORTY.md` + `CLAUDE.md` + all `memories/*.md` combined: hard cap 8 000 tokens.
+- `MORTY.md` + `CLAUDE.md` + all `memories/*.md` combined: hard cap 8 000 tokens.
 - Journal rehydration on cold start: read the last 20 lines of `logs/morty-journal.jsonl`.
 - Do NOT attempt to query `memory.db` — it does not exist on this system.
   SQLite MCP references in older docs are stale and should be ignored.
@@ -62,6 +83,12 @@ Rules:
   run Bash commands, file reads, or any other tool calls after it — those
   will push new `"kind":"tool_call"` entries after the anchor, burying it.
 - The `wc -l` Bash command is NOT an anchor. Do not use it as a journal probe.
+- See playbook: `.claude/playbooks/checkpoint-session-end.md`
+
+## Anchor Lookup
+
+- Anchor detection must filter on the **`kind` field value exactly**. Do not use `Select-String 'anchor'`.
+- See playbook: `.claude/playbooks/introspect-anchor-diagnosis.md`
 
 ## Slash Command Invocation
 
