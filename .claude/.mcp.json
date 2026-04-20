@@ -1,0 +1,40 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "& \"$env:USERPROFILE\\.claude\\.venv\\Scripts\\python.exe\" -m mcp_server_filesystem \"$env:MORTY_PROJECT_ROOT\""
+      ]
+    },
+    "fetch": {
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "& \"$env:USERPROFILE\\.claude\\.venv\\Scripts\\python.exe\" -m mcp_server_fetch"
+      ]
+    },
+    "git": {
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "& \"$env:USERPROFILE\\.claude\\.venv\\Scripts\\python.exe\" -m mcp_server_git --repository \"$env:MORTY_PROJECT_ROOT\""
+      ]
+    },
+    "sqlite": {
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "& \"$env:USERPROFILE\\.claude\\.venv\\Scripts\\python.exe\" -m mcp_server_sqlite --db-path \"$env:USERPROFILE\\.claude\\memory.db\""
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium"]
+    }
+  }
+}

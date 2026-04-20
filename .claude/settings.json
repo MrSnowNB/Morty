@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Bash(git add*)",
+      "Bash(git restore*)",
+      "Bash(python *)",
+      "Bash(pytest*)",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(pwsh *)",
+      "Bash(powershell *)",
+      "Bash(where*)",
+      "Bash(Get-*)",
+      "Bash(Select-*)",
+      "Bash(Measure-*)"
+    ],
+    "deny": [
+      "Task",
+      "Bash(rm -rf *)",
+      "Bash(Remove-Item -Recurse -Force*)",
+      "Bash(Remove-Item -Force -Recurse*)",
+      "Bash(rd /s*)",
+      "Bash(rmdir /s*)",
+      "Bash(del /s*)",
+      "Bash(format *)",
+      "Bash(diskpart*)",
+      "Bash(cipher /w*)",
+      "Bash(sc delete *)",
+      "Bash(Stop-Computer*)",
+      "Bash(Restart-Computer*)",
+      "Bash(shutdown *)",
+      "Bash(logoff*)",
+      "Bash(reg delete*)",
+      "Bash(Remove-ItemProperty *HKLM*)",
+      "Bash(Remove-ItemProperty *HKCU:\\Software\\Microsoft*)",
+      "Bash(New-ItemProperty *HKLM*)",
+      "Bash(Set-ItemProperty *HKLM*)",
+      "Bash(Invoke-Expression*)",
+      "Bash(iex *)",
+      "Bash(Invoke-WebRequest* | iex*)",
+      "Bash(irm * | iex*)",
+      "Bash(curl * | *sh*)",
+      "Bash(curl * | bash*)",
+      "Bash(curl * | powershell*)",
+      "Bash(wget * | *sh*)",
+      "Bash(Invoke-RestMethod* | Invoke-Expression*)",
+      "Bash(bcdedit*)",
+      "Bash(cacls*)",
+      "Bash(icacls * /grant Everyone*)",
+      "Bash(takeown *)",
+      "Bash(net user * /add*)",
+      "Bash(net localgroup administrators *)",
+      "Bash(Add-LocalGroupMember*)",
+      "Bash(New-LocalUser*)",
+      "Bash(Disable-WindowsOptionalFeature*)",
+      "Bash(Set-ExecutionPolicy Unrestricted*)",
+      "Bash(Set-ExecutionPolicy Bypass -Scope LocalMachine*)",
+      "Bash(attrib -r -s -h*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard origin*)",
+      "Bash(git clean -fdx*)",
+      "Bash(git filter-branch*)",
+      "Bash(git reflog expire*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\.claude\\hooks\\pre-bash.ps1"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\\.claude\\hooks\\post-tool.ps1"
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "MORTY_DENYLIST": "%USERPROFILE%\\.claude\\skills\\safe-bash\\references\\denylist.yaml"
+  }
+}
