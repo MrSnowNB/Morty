@@ -132,8 +132,11 @@ After any non-trivial solve:
    - reusable heuristics,
    - candidate skill edits or new skills.
 3. If a new reusable invariant emerged, propose an update to `references/domain-axioms.md`.
-4. If the solve revealed a repeatable workflow, propose a new skill or a patch to an existing one.
-5. If the session is near compaction or handoff, invoke `checkpoint-writer`.
+4. Evaluate the solve for durable artifacts:
+   - If the solve yields a **repeatable operational workflow**, synthesize a playbook in `.claude/playbooks/`.
+   - If the solve yields only a **failure analysis** without reusable operational steps, write a case entry in `.claude/cases/`.
+5. If the solve revealed a need for a new agentic capability, propose a new skill or a patch to an existing one.
+6. If the session is near compaction or handoff, invoke `checkpoint-writer`.
 
 ## Compression discipline
 
