@@ -16,12 +16,13 @@ Produce a Markdown report with these sections:
 ## Finding the last anchor summary
 
 Anchor entries have `"kind"` set to one of: `checkpoint`, `done`, `decision`,
-`close`, or `issue`. They are distinct from `"kind":"tool_call"` entries.
+`close`, `issue`, `task_begin`, or `task_end`. They are distinct from
+`"kind":"tool_call"` entries.
 
 Use this exact PowerShell command to find the last anchor:
 
 ```powershell
-powershell -Command "Get-Content 'logs/morty-journal.jsonl' -Tail 100 | Where-Object { $_ -match '\"kind\":\"(checkpoint|done|decision|close|issue)\"' } | Select-Object -Last 1"
+powershell -Command "Get-Content 'logs/morty-journal.jsonl' -Tail 100 | Where-Object { $_ -match '\"kind\":\"(checkpoint|done|decision|close|issue|task_begin|task_end)\"' } | Select-Object -Last 1"
 ```
 
 - If a matching line is found, extract and display its `summary` field.

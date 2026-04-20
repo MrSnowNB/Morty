@@ -26,11 +26,18 @@ description: Use this when Morty needs to record a durable trace of work — a c
   "ts": "ISO-8601 UTC",
   "agent_id": "morty",
   "task_id": "<slug or null>",
-  "kind": "done|checkpoint|decision|close|issue",
+  "kind": "done|checkpoint|decision|close|issue|task_begin|task_end",
   "summary": "one line",
   "next_action": "one line or null"
 }
 ```
+
+## Task boundary kinds (v2)
+
+- `task_begin` — emitted by `/task-begin`. Marks the start of a mineable chain.
+- `task_end`   — emitted by `/task-end`. `summary` must start with `success:`,
+  `partial:`, or `fail:` so the chain-miner can score the chain without
+  parsing free text.
 
 ## Gotchas
 

@@ -1,4 +1,7 @@
 # PostToolUse hook — append every tool call to the project journal.
+# Schema v2: adds task_id, step_idx, exit_status so chain-miner can group
+# tool calls into task-bounded sequences and measure outcomes.
+# v1 entries (no task_id) remain valid — miner treats them as unbound.
 $ErrorActionPreference = "SilentlyContinue"
 $raw = [Console]::In.ReadToEnd()
 if (-not $raw) { exit 0 }
@@ -8,15 +11,54 @@ if (-not $projectRoot) { exit 0 }
 $logDir = Join-Path $projectRoot "logs"
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
 $journal = Join-Path $logDir "morty-journal.jsonl"
+
+# --- v2 fields ---------------------------------------------------------------
+# task_id: set by /task-begin into $env:MORTY_TASK_ID, cleared by /task-end.
+# step_idx: per-task monotonic counter persisted in logs/.step-counter.
+# exit_status: ok|error — derived from tool_response.is_error when present.
+$taskId = $env:MORTY_TASK_ID
+$stepIdx = $null
+if ($taskId) {
+  $counterFile = Join-Path $logDir ".step-counter"
+  $mutexStep = New-Object System.Threading.Mutex($false, "Global\MortyStepCounter")
+  try {
+    $null = $mutexStep.WaitOne()
+    $current = 0
+    if (Test-Path $counterFile) {
+      $raw2 = Get-Content $counterFile -Raw -ErrorAction SilentlyContinue
+      if ($raw2 -match '"task_id"\s*:\s*"([^"]*)"') {
+        $storedTask = $matches[1]
+        if ($raw2 -match '"step_idx"\s*:\s*(\d+)') { $current = [int]$matches[1] }
+        if ($storedTask -ne $taskId) { $current = 0 }
+      }
+    }
+    $stepIdx = $current + 1
+    @{ task_id = $taskId; step_idx = $stepIdx } | ConvertTo-Json -Compress | Set-Content -Path $counterFile -Encoding utf8
+  } finally {
+    $mutexStep.ReleaseMutex()
+    $mutexStep.Dispose()
+  }
+}
+
+$exitStatus = "ok"
+if ($inp.tool_response -and $inp.tool_response.is_error) { $exitStatus = "error" }
+
 $summaryRaw = ($inp.tool_input | ConvertTo-Json -Compress -Depth 3)
 $summary = if ($summaryRaw.Length -gt 200) { $summaryRaw.Substring(0,200) } else { $summaryRaw }
-$entry = @{
+
+$entryObj = [ordered]@{
   ts       = (Get-Date).ToUniversalTime().ToString("o")
   agent_id = "morty"
   kind     = "tool_call"
   tool     = $inp.tool_name
   summary  = $summary
-} | ConvertTo-Json -Compress
+  exit_status = $exitStatus
+}
+if ($taskId)  { $entryObj.task_id  = $taskId }
+if ($stepIdx) { $entryObj.step_idx = $stepIdx }
+if ($env:MORTY_LORA_MUX) { $entryObj.lora_mux = $env:MORTY_LORA_MUX }
+
+$entry = $entryObj | ConvertTo-Json -Compress
 $mutex = New-Object System.Threading.Mutex($false, "Global\MortyJournal")
 try {
   $null = $mutex.WaitOne()
