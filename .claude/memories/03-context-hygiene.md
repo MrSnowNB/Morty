@@ -31,33 +31,24 @@ Rules to prevent overflow:
 
 - Total memory injection at cold start: ≤ 20% of the active model context window.
 - `MORTY.md` + `CLAUDE.md` + all `memories/*.md` combined: hard cap 8 000 tokens.
-- Journal rehydration on cold start: query the last 5 rows from `memory.db`
-  via `mcp__sqlite__read_query` — do NOT read `morty-journal.jsonl` directly.
+- Journal rehydration on cold start: read the last 20 lines of `logs/morty-journal.jsonl`.
+- Do NOT attempt to query `memory.db` — it does not exist on this system.
+  SQLite MCP references in older docs are stale and should be ignored.
 - If the budget would be exceeded, run `/compact` before the first user turn.
 
 ## Bounded Memory Reads
 
 - Commands and skills must never call `filesystem.read_file` on
   `morty-journal.jsonl` during normal operation. The file is append-only
-  ground truth and is read only when Mark explicitly invokes `/journal`.
-- Use `mcp__sqlite__read_query` against `checkpoints` with an explicit
-  `LIMIT` clause for all programmatic history lookups:
-
-  ```sql
-  SELECT id, ts, project, decision, outcome, next_step
-  FROM   checkpoints
-  ORDER  BY id DESC
-  LIMIT  5;
-  ```
-
-- If `memory.db` does not yet contain a `checkpoints` table (first run),
-  fall back to reading the last 20 lines of `morty-journal.jsonl` once,
-  then immediately run `/checkpoint` to seed the table.
+  ground truth and is read only when Mark explicitly invokes `/journal` or
+  during cold-start rehydration (last 20 lines only).
+- Use `powershell -Command "Get-Content logs/morty-journal.jsonl -Tail 20"`
+  for cold-start rehydration. Always use `-Tail` with an explicit limit.
 
 ## Checkpoint Discipline
 
 The `journal-anchor` skill only writes anchor entries when explicitly invoked.
-`/introspect` reads the last anchor entry to display session state. If
+`/introspect` reads the last anchor-kind entry to display session state. If
 `journal-anchor` is never called, `/introspect` falls back to the last
 tool-call line, which is meaningless.
 
@@ -67,4 +58,14 @@ Rules:
 - After any spec, design, or architecture decision: invoke `/checkpoint`.
 - After any skill edit or new skill creation: invoke `/checkpoint`.
 - At session end (before `/clear` or handoff): always invoke `/checkpoint`.
+- **`/checkpoint` must be the last meaningful action of a session.** Do not
+  run Bash commands, file reads, or any other tool calls after it — those
+  will push new `"kind":"tool_call"` entries after the anchor, burying it.
 - The `wc -l` Bash command is NOT an anchor. Do not use it as a journal probe.
+
+## Slash Command Invocation
+
+See `MORTY.md` — Slash Commands vs Skills section.
+`/checkpoint`, `/compact`, `/introspect` are built-in commands, not skills.
+Do NOT invoke them via `Skill(/checkpoint)` — that only loads the skill file.
+Type the slash command directly in the session.
