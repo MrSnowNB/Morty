@@ -1,5 +1,5 @@
 ---
-description: Snapshot current session state to CHECKPOINT.md, anchor the journal, and write a typed row to memory.db.
+description: Snapshot current session state to CHECKPOINT.md and anchor the journal.
 argument-hint: "[one-line outcome summary]"
 ---
 
@@ -10,5 +10,4 @@ proceeding — do not guess.
 Report:
 - CHECKPOINT.md path
 - Journal line count
-- memory.db checkpoint id
 - next_step
