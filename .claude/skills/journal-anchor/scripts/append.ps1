@@ -1,5 +1,9 @@
 # Appends a single JSON line to the project journal with mutex-protected write.
 # Usage: echo '<json>' | pwsh -File append.ps1
+# Execution policy bypass scoped to this process only — script is intentionally unsigned.
+[System.Diagnostics.Process]::GetCurrentProcess() | Out-Null
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
 param(
   [string]$JournalPath = "$env:MORTY_PROJECT_ROOT\logs\morty-journal.jsonl"
 )
