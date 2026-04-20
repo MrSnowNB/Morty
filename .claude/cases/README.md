@@ -30,3 +30,6 @@ Each file follows this structure:
 |---|---|---|
 | `journal-anchor-never-invoked.md` | `/introspect` shows raw tool call instead of anchor summary | 2026-04-20 |
 | `context-overflow-lemonade.md` | Morty unresponsive due to 64K context overflow on llama.cpp | 2026-04-20 |
+| `slash-cmd-vs-skill-confusion.md` | `Skill()` wrapper used for built-in slash commands | 2026-04-20 |
+| `memory-db-does-not-exist.md` | `memory.db` referenced but not present; SQLite path is dead | 2026-04-20 |
+| `anchor-buried-by-subsequent-tool-calls.md` | Anchor written mid-session, buried by later tool calls | 2026-04-20 |
