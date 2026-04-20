@@ -52,7 +52,29 @@ Map conclusions back to ground truths and solved sub-problems.
 - Reusable invariant:
 - Candidate skill edit:
 
-## ZOMBIE-RESTORE [2026-04-20T23:07 UTC]
+## ZOMBIE-RESTORE [2026-04-20T23:15 UTC] — REFRESHED
+
+### Gate 1 — Freshness: PASS
+- Last journal entry: 2026-04-20T23:12:20Z (within 24 hours)
+
+### Gate 2 — Checkpoint Integrity: FAIL
+- CHECKPOINT.md exists but contains NO `kind: "anchor"` field
+- Journal has `kind: "checkpoint"` entries (lines 94, 118, 156) but zero `kind: "anchor"` entries
+- The journal-anchor skill was invoked (line 155) but did not produce valid anchor entries
+
+### Gate 3 — Tier-1 Provenance: FAIL
+- All 7 memory files (00-06) are unanchored
+- Zero `kind: "anchor"` entries exist in the journal
+- Total provenance failure — no memory file has a post-write checkpoint anchor
+
+### Gate 4 — LoRa-Mux Mode: LORA
+- All 6 memory files + CLAUDE.md + MORTY.md already loaded at cold start
+- Context fill estimated > 70%
+- Per LoRa-Mux table: > 70% → LORA mode
+
+### Result: MINIMAL-MODE
+
+## ZOMBIE-RESTORE [2026-04-20T23:07 UTC] — PREVIOUS RUN
 
 - Gate 1 Freshness: PASS — last journal entry 2026-04-20T23:07Z (within 24h)
 - Gate 2 Checkpoint: FAIL — CHECKPOINT.md exists but no `kind: anchor` field; journal contains zero `kind: anchor` entries
