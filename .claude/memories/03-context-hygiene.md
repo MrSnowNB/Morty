@@ -51,7 +51,7 @@ Rules to prevent overflow:
 ## Token Budgets (cold start)
 
 - Total memory injection at cold start: ≤ 20% of the active model context window.
-- `MORTY.md` + `CLAUDE.md` + all `memories/*.md` combined: hard cap 8 000 tokens.
+- `MORTY.md` + `CLAUDE.md` + all `memories/*.md` combined: hard cap 8 000 tokens.
 - Journal rehydration on cold start: read the last 20 lines of `logs/morty-journal.jsonl`.
 - Do NOT attempt to query `memory.db` — it does not exist on this system.
   SQLite MCP references in older docs are stale and should be ignored.
@@ -96,3 +96,22 @@ See `MORTY.md` — Slash Commands vs Skills section.
 `/checkpoint`, `/compact`, `/introspect` are built-in commands, not skills.
 Do NOT invoke them via `Skill(/checkpoint)` — that only loads the skill file.
 Type the slash command directly in the session.
+
+## LoRa-Mux Mode (context bandwidth policy)
+
+Set mode based on current context fill level **before** loading any files
+beyond the cold-start minimum. Full table and rules in
+`.claude/memories/06-tiered-memory.md`.
+
+Quick reference:
+
+| Mode     | Fill trigger | What changes                                    |
+|----------|--------------|-------------------------------------------------|
+| WIDE     | < 40%        | Full reads, all memories, r=32 detail level     |
+| STANDARD | 40–70%       | Selective reads, last-3 memories, r=16 (default)|
+| LORA     | > 70%        | Summary only, `03`+`04` memories, r=8, /compact |
+
+- In LORA mode: write SCRATCH.md aggressively, do NOT read it back.
+- In LORA mode: do NOT promote memory tiers — defer to next session.
+- Advertise mode in journal anchor entries: `"lora_mux": "WIDE|STANDARD|LORA"`.
+- See skill: `.claude/skills/zombie-restore.md` for Gate 4 (mode-setting at cold start).
