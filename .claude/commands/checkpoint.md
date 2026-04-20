@@ -1,9 +1,14 @@
 ---
-description: Snapshot current session state to CHECKPOINT.md and anchor the journal.
+description: Snapshot current session state to CHECKPOINT.md, anchor the journal, and write a typed row to memory.db.
+argument-hint: "[one-line outcome summary]"
 ---
-Invoke the `checkpoint-writer` skill.
 
-Write CHECKPOINT.md with: project overview, current focus, recent decisions,
-open questions, next action. Then invoke `journal-anchor` with kind="checkpoint".
+Invoke the `checkpoint-writer` skill, passing `$ARGUMENTS` as the outcome
+summary. If `$ARGUMENTS` is empty, ask Mark for a one-line outcome before
+proceeding — do not guess.
 
-Report the checkpoint path and journal line count.
+Report:
+- CHECKPOINT.md path
+- Journal line count
+- memory.db checkpoint id
+- next_step
