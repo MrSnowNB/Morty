@@ -84,18 +84,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File C:/Users/AMD/.claude/hooks/post-tool.ps1"
-          }
-        ]
-      }
-    ]
-  },
   "env": {
     "MORTY_DENYLIST":     "C:/Users/AMD/.claude/skills/safe-bash/references/denylist.yaml",
     "MORTY_MODEL":        "user.Qwen3.6-35B-A3B-GGUF",

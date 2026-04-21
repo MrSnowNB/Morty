@@ -173,3 +173,23 @@ The MINE block contains zero qualifying chains. `/codify` requires at least one 
 - Fix the task_begin command to wire into Claude Code's native task/task_id context (likely a settings.json hook or Claude Code feature)
 - Run ≥2 identical or similar tasks to produce a repeatable chain
 - Then re-run chain-miner → /codify
+
+## BENCHMARK [2026-04-21 02:32 UTC] v1.0
+- Session start (approx): 2026-04-20T23:25Z (first tool_call of prior session)
+- Session end: 2026-04-21T02:32Z
+- Tool calls this session: 445
+
+### Scores
+| Metric               | Value  | Status   |
+|----------------------|--------|----------|
+| Gate Score           | 4/4    | PASS     |
+| Tool Error Rate      | 0.00   | good     |
+| Task Completion Rate | 1.00   | good     |
+| Chain Yield          | 0 cand / 5 tasks | N/A (no patterns yet) |
+
+### Composite Score: 3.00 / 4.00
+
+### Notes
+- **Biggest weakness:** Chain yield is 0 — the journal has no repeatable tool-call patterns yet. The task_id propagation bug prevented chain-miner from seeing any steps, and even with the fix, the 3 endpoint reviews had unique tool sequences.
+- **Biggest strength:** Zero tool errors across 445 calls and 100% task completion — the session was clean and disciplined.
+- **Recommendation:** Run ≥2 identical tasks (same steps) with the fixed task_id propagation to feed chain-miner its first candidate.
