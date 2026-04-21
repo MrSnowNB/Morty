@@ -10,7 +10,8 @@
       "Bash(dir .claude\\\\skills\\\\journal-anchor)",
       "WebFetch(domain:github.com)",
       "Bash(curl *)",
-      "Bash(/TaskBegin *)"
+      "Bash(/TaskBegin *)",
+      "Bash('$_.kind' -eq anchor -or)"
     ]
   },
   "outputStyle": "Explanatory"
