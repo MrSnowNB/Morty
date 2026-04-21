@@ -52,14 +52,14 @@ Map conclusions back to ground truths and solved sub-problems.
 - Reusable invariant:
 - Candidate skill edit:
 
-## ZOMBIE-RESTORE [2026-04-21T00:27Z] — CURRENT RUN
+## ZOMBIE-RESTORE [2026-04-21T01:24Z] — CURRENT RUN
 
 ### Gate 1 — Freshness: PASS
-- Last journal entry: 2026-04-21T00:27:06Z (within 24 hours)
+- Last journal entry: 2026-04-21T01:23:56Z (within 24 hours)
 
 ### Gate 2 — Checkpoint Integrity: PASS
 - Found `kind:checkpoint` entry at 2026-04-20T23:20:00Z
-- Summary: "Zombie-restore gate check: G1 PASS, G2 PASS, G3 PARTIAL, G4 LORA"
+- Summary: "Zombie-restore gate check: G1 PASS, G2 PASS, G3 PASS, G4 LORA"
 
 ### Gate 3 — Tier-1 Provenance: PASS
 - Latest checkpoint: 2026-04-20T23:20:00Z
