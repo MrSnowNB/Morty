@@ -1,117 +1,51 @@
+---
+title: Memory — 03-context-hygiene
+tier: 1
+version: 1.1
+changelog:
+  1.1: Add SCRATCH.md anchor preservation rule and raw-dump prohibition
+---
+
 # Context Hygiene
 
-- Invoke `/compact` at task boundaries. Do not wait for auto-compact.
-- Invoke `/checkpoint` when context exceeds ~60% of the window.
-- **Invoke `/checkpoint` automatically after any non-trivial task completes — do not wait for Mark to ask.**
-- Prefer `@path/to/file` imports over pasting file contents.
-- Do not read files "just to be safe." Read only what the current step needs.
-- When summarizing for compaction, preserve: project overview, current focus,
-  recent decisions, next action. Discard everything else.
+## Rule 1 — No raw journal dumps into response context
 
-## Pre-Action Gate
+Never pipe full journal JSON objects into a Bash response or include them
+in tool output summaries. Use `Select-Object` to extract only the fields
+you need (e.g. `ts`, `kind`, `task_id`). Violating this rule causes rapid
+context fill and risks 400 overflow errors.
 
-Before any checkpoint, introspect, journal, or recovery action, answer these four questions in order:
+Correct:
+```powershell
+Get-Content logs/morty-journal.jsonl -Tail 20 |
+  ConvertFrom-Json |
+  Select-Object ts, kind, task_id |
+  Format-Table -AutoSize
+```
 
-1. **What invariant must remain true?**
-2. **What state am I in now?**
-3. **What is the minimal safe action?**
-4. **What must I avoid after this action?**
+Wrong:
+```powershell
+Get-Content logs/morty-journal.jsonl -Tail 20
+```
 
-Example — session-end checkpoint:
+## Rule 2 — Temp scripts must be cleaned up
 
-| Question | Answer |
-|----------|--------|
-| Invariant | `/checkpoint` must be the last meaningful action |
-| Current state | Task is complete; no anchor yet written |
-| Minimal safe action | Type `/checkpoint` directly |
-| Avoid after | Any Bash, Read, Grep, or Write tool call |
+Any `_tmp_*.ps1` file written to `logs/` must be deleted at the end of the
+task that created it. Do not accumulate temp files across sessions.
 
-**Rule: If a matching playbook exists in `.claude/playbooks/`, follow it before improvising.** Do not invent a procedure when a known-good one is available.
+## Rule 3 — SCRATCH.md anchor must be preserved
 
-## Context Overflow Prevention
+SCRATCH.md must always contain the line:
+```
+<!-- CHAIN-SEED-ANCHOR -->
+```
+This line is the fixed Edit target for chain-seed warm-up tasks. If it is
+missing (e.g. SCRATCH.md was overwritten), restore it before running
+chain-seed. Never remove or modify this line outside of the chain-seed
+warm-up sequence.
 
-The lemonade server hard-rejects requests that exceed the configured context
-size with a 400 error. Claude Code's built-in compaction does NOT work against
-a local llama.cpp server — `context_management` and `thinking.type: adaptive`
-fields are silently ignored, so the payload grows on each retry instead of
-shrinking. **There is no automatic recovery once the window is exceeded.**
+## Rule 4 — zombie-restore context extraction only
 
-Rules to prevent overflow:
-
-- Monitor fill level. If a session has involved heavy file reads, long
-  reasoning chains, or skill execution, assume context is high.
-- At ~70% fill: run `/compact` immediately, before the next task.
-- At ~80% fill: run `/checkpoint` then `/compact` in sequence.
-- Never read `morty-journal.jsonl` in full during an active session.
-- Never paste large file contents inline — always use `@path/to/file`.
-- First-principles sessions are high-risk for overflow. Write intermediate
-  state to `SCRATCH.md` aggressively and compact between phases.
-- See playbook: `.claude/playbooks/context-overflow-recovery.md`
-
-## Token Budgets (cold start)
-
-- Total memory injection at cold start: ≤ 20% of the active model context window.
-- `MORTY.md` + `CLAUDE.md` + all `memories/*.md` combined: hard cap 8 000 tokens.
-- Journal rehydration on cold start: read the last 20 lines of `logs/morty-journal.jsonl`.
-- Do NOT attempt to query `memory.db` — it does not exist on this system.
-  SQLite MCP references in older docs are stale and should be ignored.
-- If the budget would be exceeded, run `/compact` before the first user turn.
-
-## Bounded Memory Reads
-
-- Commands and skills must never call `filesystem.read_file` on
-  `morty-journal.jsonl` during normal operation. The file is append-only
-  ground truth and is read only when Mark explicitly invokes `/journal` or
-  during cold-start rehydration (last 20 lines only).
-- Use `powershell -Command "Get-Content logs/morty-journal.jsonl -Tail 20"`
-  for cold-start rehydration. Always use `-Tail` with an explicit limit.
-
-## Checkpoint Discipline
-
-The `journal-anchor` skill only writes anchor entries when explicitly invoked.
-`/introspect` reads the last anchor-kind entry to display session state. If
-`journal-anchor` is never called, `/introspect` falls back to the last
-tool-call line, which is meaningless.
-
-Rules:
-
-- After any first-principles session: invoke `/checkpoint` before closing.
-- After any spec, design, or architecture decision: invoke `/checkpoint`.
-- After any skill edit or new skill creation: invoke `/checkpoint`.
-- At session end (before `/clear` or handoff): always invoke `/checkpoint`.
-- **`/checkpoint` must be the last meaningful action of a session.** Do not
-  run Bash commands, file reads, or any other tool calls after it — those
-  will push new `"kind":"tool_call"` entries after the anchor, burying it.
-- The `wc -l` Bash command is NOT an anchor. Do not use it as a journal probe.
-- See playbook: `.claude/playbooks/checkpoint-session-end.md`
-
-## Anchor Lookup
-
-- Anchor detection must filter on the **`kind` field value exactly**. Do not use `Select-String 'anchor'`.
-- See playbook: `.claude/playbooks/introspect-anchor-diagnosis.md`
-
-## Slash Command Invocation
-
-See `MORTY.md` — Slash Commands vs Skills section.
-`/checkpoint`, `/compact`, `/introspect` are built-in commands, not skills.
-Do NOT invoke them via `Skill(/checkpoint)` — that only loads the skill file.
-Type the slash command directly in the session.
-
-## LoRa-Mux Mode (context bandwidth policy)
-
-Set mode based on current context fill level **before** loading any files
-beyond the cold-start minimum. Full table and rules in
-`.claude/memories/06-tiered-memory.md`.
-
-Quick reference:
-
-| Mode     | Fill trigger | What changes                                    |
-|----------|--------------|-------------------------------------------------|
-| WIDE     | < 40%        | Full reads, all memories, r=32 detail level     |
-| STANDARD | 40–70%       | Selective reads, last-3 memories, r=16 (default)|
-| LORA     | > 70%        | Summary only, `03`+`04` memories, r=8, /compact |
-
-- In LORA mode: write SCRATCH.md aggressively, do NOT read it back.
-- In LORA mode: do NOT promote memory tiers — defer to next session.
-- Advertise mode in journal anchor entries: `"lora_mux": "WIDE|STANDARD|LORA"`.
-- See skill: `.claude/skills/zombie-restore.md` for Gate 4 (mode-setting at cold start).
+During zombie-restore Gate 1, read journal tail for timestamps only.
+Do not echo full JSON blobs into the response. Extract `ts` and `kind`
+fields only.
