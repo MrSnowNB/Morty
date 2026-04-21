@@ -1,7 +1,7 @@
 ---
 title: Skill — self-benchmark
-version: 1.0
-author: Perplexity (via PR game)
+version: 1.1
+author: Perplexity (PR #2 update)
 ---
 
 # Skill: self-benchmark
@@ -40,11 +40,14 @@ Count gates with result PASS. Score = gates passed / 4.
 ### Metric 2 — Tool Error Rate (0.0–1.0, lower is better)
 > What fraction of tool calls returned errors this session?
 
+Use the benchmark.ps1 script for accurate counts. The field is `exit_status`
+(not `exit_status` with a hyphen). Example manual check:
+
 ```powershell
-$lines = Get-Content logs/morty-journal.jsonl -Tail 500 | ConvertFrom-Json
-$sessionCalls = $lines | Where-Object { $_.kind -eq 'tool_call' -and $_.ts -gt $sessionStart }
-$errors = $sessionCalls | Where-Object { $_.exit_status -eq 'error' }
-$errorRate = if ($sessionCalls.Count -gt 0) { $errors.Count / $sessionCalls.Count } else { 0 }
+$lines = Get-Content logs/morty-journal.jsonl -Tail 500
+$calls = foreach ($l in $lines) { try { $l | ConvertFrom-Json } catch { $null } } | Where-Object { $_ -and $_.kind -eq 'tool_call' }
+$errors = $calls | Where-Object { $_.exit_status -eq 'error' }
+"errors: $($errors.Count) / total: $($calls.Count)"
 ```
 
 - 0.0 = perfect
@@ -55,9 +58,9 @@ $errorRate = if ($sessionCalls.Count -gt 0) { $errors.Count / $sessionCalls.Coun
 > What fraction of started tasks were closed with success?
 
 ```powershell
-$begins = $lines | Where-Object { $_.kind -eq 'task_begin' -and $_.ts -gt $sessionStart }
-$successes = $lines | Where-Object { $_.kind -eq 'task_end' -and $_.exit_status -eq 'success' -and $_.ts -gt $sessionStart }
-$completionRate = if ($begins.Count -gt 0) { $successes.Count / $begins.Count } else { 0 }
+$begins = $calls | Where-Object { $_.kind -eq 'task_begin' }
+$successes = $calls | Where-Object { $_.kind -eq 'task_end' -and $_.exit_status -eq 'success' }
+"begins: $($begins.Count) / successes: $($successes.Count)"
 ```
 
 - 1.0 = all tasks closed successfully
@@ -69,15 +72,18 @@ $completionRate = if ($begins.Count -gt 0) { $successes.Count / $begins.Count } 
 Run chain-miner with default thresholds. Divide candidate count by closed task
 count * 10. Report raw candidate count and yield ratio.
 
-- 0 candidates = no patterns yet (expected early in a project)
+- 0 candidates = no patterns yet (expected early; run chain-seed playbook)
 - ≥ 1 candidate per 10 tasks = healthy
+
+**If Chain Yield = 0: run the `chain-seed` playbook at the start of the next
+session before any other task.**
 
 ## Output Format
 
 Append to SCRATCH.md:
 
 ```
-## BENCHMARK [YYYY-MM-DD HH:MM UTC] v1.0
+## BENCHMARK [YYYY-MM-DD HH:MM UTC] v1.1
 - Session start (approx): <ts of first journal entry this session>
 - Session end: <now>
 - Tool calls this session: <N>
@@ -109,6 +115,12 @@ composite = gate_score                          # 0–1
 
 Max composite = 4.0. Report to 2 decimal places.
 
+## Session Scores History
+
+| Session | Date | Composite | Chain Yield | Notes |
+|---------|------|-----------|-------------|-------|
+| 1 | 2026-04-20 | 3.00/4.00 | 0 | Baseline. task_id bug live most of session. |
+
 ## Hard Rules
 
 - Never fabricate scores. If data is missing, report "N/A" with reason.
@@ -116,3 +128,4 @@ Max composite = 4.0. Report to 2 decimal places.
   default thresholds only (count ≥ 2, success_rate = 1.0).
 - Report the benchmark result to Mark verbally after writing to SCRATCH.md.
 - The benchmark is informational only — it does not gate any action.
+- If Chain Yield = 0 two sessions in a row, escalate to Mark immediately.
