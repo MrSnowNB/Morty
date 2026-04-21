@@ -128,31 +128,48 @@ Review 2 focuses on error handling and modernization. The script swallows diagno
 
 Review 3 focuses on portability and correctness. The script scans ports blindly and checks a potentially misleading endpoint. Adding env-var port configuration and health-endpoint verification would make it robust for production use.
 
-## MINE [2026-04-21 01:10]
+## MINE [2026-04-21 01:46]
 
 ```json
 {
-  "ts": "2026-04-21T01:10:07.1168517Z",
+  "ts": "2026-04-21T01:46:30.8952367Z",
   "journal_path": "C:/work/harness-sandbox\\logs\\morty-journal.jsonl",
   "tail_lines": 2000,
-  "tasks_seen": 1,
-  "tasks_closed": 0,
+  "tasks_seen": 6,
+  "tasks_closed": 3,
   "min_count": 2,
   "min_success_rate": 1.0,
   "candidates": []
 }
 ```
 
-**Note:** Only 1 task seen in journal, 0 closed. No chains meet the codification threshold (count >= 2, success_rate == 1.0). The journal needs more task_begin/task_end boundaries before mining can surface patterns.
+**Note:** 3 tasks closed (3 endpoint reviews), but zero qualifying chains. Each review has a unique tool sequence — no pattern repeats >= 2 times. Additionally, tool_call entries in the journal have `task_id=""` despite task boundaries being set, so the miner sees 0 tool_call steps per task.
 
-Additionally, `mine.ps1` had a PowerShell parser bug (line 33: `foreach` statement used as pipeline expression) — fixed by wrapping in `@(...)`.
+## ROOT CAUSE: task_id not propagated to tool_call entries
 
-## Phase 3 — PROPOSE: /codify [2026-04-21T01:11Z]
+The `/task-begin` command in `.claude/commands/task-begin.md` only appends a journal anchor line. It does not propagate the task_id to Claude Code's native tool_call logging framework. All tool calls in the journal have `task_id=""`, so the chain-miner can never associate tool calls with tasks.
+
+**Fix required:** The task-begin command must integrate with Claude Code's native task/task_id mechanism so that subsequent tool_call entries carry the task_id. This is likely a hook or settings.json configuration issue, not a script fix.
+
+## Phase 3 — PROPOSE: /codify [2026-04-21T01:48Z]
 
 **Result:** No proposal generated.
 
-The MINE block contains zero qualifying chains (0 candidates). `/codify` requires at least one candidate chain meeting the threshold (count >= 2, success_rate == 1.0). The journal currently has only 1 task seen and 0 closed task_end entries, so no patterns exist to codify.
+The MINE block contains zero qualifying chains. `/codify` requires at least one candidate chain meeting the threshold (count >= 2, success_rate == 1.0).
 
-**DELTA entry:** (none — no proposal was made)
+### DELTA entry
 
-To enable codification, the journal needs more task_begin/task_end bounded sessions that produce closed tasks with repeated tool-call sequences.
+- **Candidate:** (none)
+- **Reason:** No chains meet codification threshold
+- **Root cause:** task_id not propagated to tool_call entries — chain-miner sees 0 tool_call steps per task, so no chains can form
+
+### Two blockers preventing codification:
+
+1. **task_id propagation gap:** `/task-begin` only appends a journal anchor; it doesn't affect Claude Code's native tool_call logging. All tool_calls have `task_id=""`.
+2. **No repeated patterns:** Even with fixed task_id propagation, the 3 endpoint reviews have unique tool sequences (each reads a different file or does different edits). Need ≥2 tasks with the same tool sequence.
+
+### What's needed:
+
+- Fix the task_begin command to wire into Claude Code's native task/task_id context (likely a settings.json hook or Claude Code feature)
+- Run ≥2 identical or similar tasks to produce a repeatable chain
+- Then re-run chain-miner → /codify
