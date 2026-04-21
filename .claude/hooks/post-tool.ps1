@@ -17,6 +17,20 @@ $journal = Join-Path $logDir "morty-journal.jsonl"
 # step_idx: per-task monotonic counter persisted in logs/.step-counter.
 # exit_status: ok|error — derived from tool_response.is_error when present.
 $taskId = $env:MORTY_TASK_ID
+
+# Fallback: if env var is empty, read the most recent task_begin from the journal.
+# The hook runs as a separate pwsh subprocess that doesn't inherit the agent's
+# process env vars, so /task-begin's $env:MORTY_TASK_ID is invisible here.
+# The journal is the shared medium — tail 500 is fast enough.
+if (-not $taskId) {
+  if (Test-Path $journal) {
+    $lastBegin = Get-Content $journal -Tail 500 |
+      ConvertFrom-Json |
+      Where-Object { $_ -and $_.kind -eq "task_begin" } |
+      Select-Object -Last 1
+    if ($lastBegin) { $taskId = $lastBegin.task_id }
+  }
+}
 $stepIdx = $null
 if ($taskId) {
   $counterFile = Join-Path $logDir ".step-counter"
