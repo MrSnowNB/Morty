@@ -98,7 +98,7 @@
   },
   "env": {
     "MORTY_DENYLIST":     "C:/Users/AMD/.claude/skills/safe-bash/references/denylist.yaml",
-    "MORTY_MODEL":        "Qwen3-Coder-Next-GGUF",
+    "MORTY_MODEL":        "user.Qwen3.6-35B-A3B-GGUF",
     "MORTY_PROJECT_ROOT": "C:/work/harness-sandbox"
   }
 }

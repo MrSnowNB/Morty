@@ -9,7 +9,8 @@
       "Bash(dir .claude\\\\skills\\\\checkpoint-writer)",
       "Bash(dir .claude\\\\skills\\\\journal-anchor)",
       "WebFetch(domain:github.com)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(/TaskBegin *)"
     ]
   }
 }
