@@ -28,9 +28,9 @@ if (-not (Test-Path $JournalPath)) {
 $lines = Get-Content -Path $JournalPath -Tail $Tail -Encoding utf8
 
 # --- Parse entries -----------------------------------------------------------
-$entries = foreach ($line in $lines) {
+$entries = @(foreach ($line in $lines) {
   try { $line | ConvertFrom-Json } catch { $null }
-} | Where-Object { $_ -ne $null }
+}) | Where-Object { $_ -ne $null }
 
 # --- Normalize an argument string into an arg_shape --------------------------
 function Get-ArgShape {
