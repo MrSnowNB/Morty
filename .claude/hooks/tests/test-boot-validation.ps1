@@ -92,6 +92,11 @@ function Assert-Contains {
     } else {
         Write-Host "  FAIL  $TestName" -ForegroundColor Red
         Write-Host "        expected substring: $Needle"
+        Write-Host "        haystack length: $(if ($Haystack) { $Haystack.Length } else { 0 })"
+        if ($Haystack) {
+            $sample = $Haystack.Substring(0, [Math]::Min(500, $Haystack.Length))
+            Write-Host "        haystack sample: $sample"
+        }
         $script:failures += $TestName
     }
 }
