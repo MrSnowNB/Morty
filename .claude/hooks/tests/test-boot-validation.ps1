@@ -83,19 +83,29 @@ function Invoke-Validator {
     }
 }
 
+function Strip-Ansi {
+    param([string]$s)
+    if (-not $s) { return '' }
+    # Remove ANSI CSI escape sequences (e.g. [31m, [0m).
+    return [regex]::Replace($s, "`e\[[0-9;]*[A-Za-z]", '')
+}
+
 function Assert-Contains {
     # Uses plain .Contains() (not -like) because the needle may contain square
-    # brackets, which -like treats as character class delimiters.
+    # brackets, which -like treats as character class delimiters. Strip ANSI
+    # colour codes from the haystack first — the validator emits them inline
+    # (e.g. '\e[31m[FAIL]\e[0m CLAUDE_PROJECT_DIR') which splits needle substrings.
     param([string]$Haystack, [string]$Needle, [string]$TestName)
-    if ($Haystack -and $Haystack.Contains($Needle)) {
+    $clean = Strip-Ansi $Haystack
+    if ($clean -and $clean.Contains($Needle)) {
         Write-Host "  PASS  $TestName" -ForegroundColor Green
     } else {
         Write-Host "  FAIL  $TestName" -ForegroundColor Red
         Write-Host "        expected substring: $Needle"
         Write-Host "        haystack length: $(if ($Haystack) { $Haystack.Length } else { 0 })"
         if ($Haystack) {
-            Write-Host "        haystack full:"
-            $Haystack -split "`n" | ForEach-Object { Write-Host "          | $_" }
+            Write-Host "        cleaned haystack (ANSI stripped):"
+            $clean -split "`n" | ForEach-Object { Write-Host "          | $_" }
         }
         $script:failures += $TestName
     }
