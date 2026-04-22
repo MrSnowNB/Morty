@@ -13,7 +13,11 @@
       "Bash(/TaskBegin *)",
       "Bash('$_.kind' -eq anchor -or)",
       "Bash(/task-begin seed-a *)",
-      "Bash(Write-Output \"Temp files cleaned\")"
+      "Bash(Write-Output \"Temp files cleaned\")",
+      "Bash(Remove-Item '.claude/skills/chain-seed/PLAYBOOK.md' -Force)",
+      "Bash(Write-Output 'Deleted PLAYBOOK.md')",
+      "Bash(Remove-Item '.claude/skills/chain-seed' -Force)",
+      "Bash(Write-Output 'Deleted chain-seed dir')"
     ]
   },
   "outputStyle": "Explanatory"
