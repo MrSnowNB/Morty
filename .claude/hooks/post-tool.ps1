@@ -7,6 +7,20 @@ $raw = [Console]::In.ReadToEnd()
 if (-not $raw) { exit 0 }
 try { $inp = $raw | ConvertFrom-Json } catch { exit 0 }
 $projectRoot = $env:MORTY_PROJECT_ROOT
+
+# Defensive: if MORTY_PROJECT_ROOT contains an unexpanded ${CLAUDE_PROJECT_DIR}
+# placeholder (happens when settings.json is loaded in a context where Claude
+# Code does not perform substitution), fall back to $env:CLAUDE_PROJECT_DIR or
+# the current working directory. Without this, Join-Path creates a directory
+# literally named '${CLAUDE_PROJECT_DIR}' in the repo — see
+# .claude/cases/unexpanded-placeholder-journal-path.md.
+if ($projectRoot -match '\$\{CLAUDE_PROJECT_DIR\}' -or $projectRoot -match '^\$\{') {
+  if ($env:CLAUDE_PROJECT_DIR -and $env:CLAUDE_PROJECT_DIR -notmatch '^\$\{') {
+    $projectRoot = $env:CLAUDE_PROJECT_DIR
+  } else {
+    $projectRoot = (Get-Location).Path
+  }
+}
 if (-not $projectRoot) { exit 0 }
 $logDir = Join-Path $projectRoot "logs"
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }

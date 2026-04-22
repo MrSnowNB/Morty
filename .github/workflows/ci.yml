@@ -30,7 +30,9 @@ jobs:
             '.claude/skills/safe-bash/scripts/run.ps1',
             '.claude/skills/pdf-read/scripts/extract.ps1',
             '.claude/skills/doc-convert/scripts/pandoc.ps1',
-            '.claude/hooks/tests/test-post-tool-fallback.ps1'
+            '.claude/hooks/boot-validation.ps1',
+            '.claude/hooks/tests/test-post-tool-fallback.ps1',
+            '.claude/hooks/tests/test-boot-validation.ps1'
           ) | Where-Object { Test-Path $_ }
 
           $results = foreach ($t in $targets) {
@@ -57,6 +59,45 @@ jobs:
           } else {
             Write-Host "::warning::Fallback test script missing"
           }
+
+      - name: Run boot-validation regression test
+        shell: pwsh
+        run: |
+          if (Test-Path .claude/hooks/tests/test-boot-validation.ps1) {
+            pwsh -NoProfile -File .claude/hooks/tests/test-boot-validation.ps1
+          } else {
+            Write-Host "::warning::Boot-validation test script missing"
+          }
+
+      - name: Boot-validation smoke test against example settings
+        shell: pwsh
+        run: |
+          # Materialize a clean fixture so the 'no literal placeholder dir' check passes
+          # (the repo itself may carry a legacy ${CLAUDE_PROJECT_DIR}/ directory during the
+          # transition). Example settings define the known-good wired config.
+          $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "morty-ci-smoke-$(New-Guid)"
+          New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $fixture 'logs') -Force | Out-Null
+          foreach ($s in 'first-principles','journal-anchor','safe-bash','checkpoint-writer') {
+            $sd = Join-Path $fixture ".claude/skills/$s"
+            New-Item -ItemType Directory -Path $sd -Force | Out-Null
+            Set-Content -Path (Join-Path $sd 'SKILL.md') -Value "---`nname: $s`n---`n"
+          }
+          # Drop a minimal wired settings.json into the fixture. Include both
+          # PreToolUse and PostToolUse so the known-good config is genuinely
+          # all-green under -Strict (no warnings).
+          $minimal = @{
+            hooks = @{
+              PreToolUse  = @(@{ matcher='Bash'; hooks=@(@{ type='command'; command='x' }) })
+              PostToolUse = @(@{ matcher='.*';  hooks=@(@{ type='command'; command='x' }) })
+            }
+            env = @{ MORTY_MODEL = 'ci-smoke' }
+          } | ConvertTo-Json -Depth 10
+          $settings = Join-Path $fixture 'settings.json'
+          Set-Content -Path $settings -Value $minimal
+          $env:CLAUDE_PROJECT_DIR = $fixture
+          $env:MORTY_MODEL = 'ci-smoke'
+          pwsh -NoProfile -File .claude/hooks/boot-validation.ps1 -ProjectRoot $fixture -SettingsPath $settings -Strict
 
   check-hygiene:
     name: Hygiene checks
@@ -107,3 +148,14 @@ jobs:
             exit 1
           fi
           echo "No tracked _tmp_ scripts under logs/."
+
+      - name: Forbid literal ${CLAUDE_PROJECT_DIR} path components
+        run: |
+          # A directory literally named '${CLAUDE_PROJECT_DIR}' means a hook/skill wrote
+          # to the unexpanded placeholder string. Boot-validation will also catch this
+          # at runtime, but we guard against committing such paths into the repo.
+          if git ls-files | grep -F '${CLAUDE_PROJECT_DIR}'; then
+            echo "::error::Tracked files contain a literal \${CLAUDE_PROJECT_DIR} path component. A script wrote to the unexpanded placeholder."
+            exit 1
+          fi
+          echo "No literal \${CLAUDE_PROJECT_DIR} path components tracked."
