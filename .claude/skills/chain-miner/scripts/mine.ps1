@@ -55,7 +55,7 @@ function Get-ArgShape {
 
 # Collect all boundary entries
 $boundaries = @($entries | Where-Object {
-  $_ -and ($_ .kind -eq "task_begin" -or $_.kind -eq "task_end")
+  $_ -and ($_.kind -eq "task_begin" -or $_.kind -eq "task_end")
 })
 
 # Build a map: task_id → { begin_ts, end_ts, outcome }

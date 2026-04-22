@@ -27,9 +27,9 @@ if (-not $taskId) {
   if (Test-Path $journal) {
     # Read all entries and find task_begin entries
     $allEntries = Get-Content $journal -Tail 500 | ConvertFrom-Json
-    # Walk backwards through task_begins to find one that's still open
-    $taskBegins = $allEntries | Where-Object { $_ -and $_.kind -eq "task_begin" }
-    foreach ($begin in $taskBegins | ForEach-Object { $_ }) {
+    # Walk backward through task_begins to find the most recent open task
+    $taskBegins = ($allEntries | Where-Object { $_ -and $_.kind -eq "task_begin" }).Reverse()
+    foreach ($begin in $taskBegins) {
       $beginTaskId = $begin.task_id
       # Check if there's a task_end for this task_id AFTER this task_begin
       $hasEnd = $false
