@@ -79,15 +79,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File C:/work/harness-sandbox/.claude/hooks/post-tool.ps1"
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File ${CLAUDE_PROJECT_DIR}/.claude/hooks/post-tool.ps1"
           }
         ]
       }
     ]
   },
   "env": {
-    "MORTY_DENYLIST":     "C:/Users/AMD/.claude/skills/safe-bash/references/denylist.yaml",
+    "MORTY_DENYLIST":     "${CLAUDE_PROJECT_DIR}/.claude/skills/safe-bash/references/denylist.yaml",
     "MORTY_MODEL":        "user.Qwen3.6-35B-A3B-GGUF",
-    "MORTY_PROJECT_ROOT": "C:/work/harness-sandbox"
+    "MORTY_PROJECT_ROOT": "${CLAUDE_PROJECT_DIR}"
   }
 }
