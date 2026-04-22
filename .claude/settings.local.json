@@ -12,7 +12,8 @@
       "Bash(curl *)",
       "Bash(/TaskBegin *)",
       "Bash('$_.kind' -eq anchor -or)",
-      "Bash(/task-begin seed-a *)"
+      "Bash(/task-begin seed-a *)",
+      "Bash(Write-Output \"Temp files cleaned\")"
     ]
   },
   "outputStyle": "Explanatory"
