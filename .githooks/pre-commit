@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Morty pre-commit hook.
+#
+# Install once per clone:
+#   git config core.hooksPath .githooks
+#
+# Enforces three rules that the harness has violated in the past:
+#
+#   G1. No machine-specific Windows paths in .claude/ or settings.json.
+#       'C:/work/harness-sandbox' and 'C:/Users/AMD' were hard-coded in
+#       settings.json (fixed in PR #23 B3). Use ${CLAUDE_PROJECT_DIR}.
+#
+#   G2. Never commit runtime journal or ad-hoc tmp scripts.
+#       logs/*.jsonl and logs/_tmp_*.ps1 are runtime artifacts; the
+#       journal was wrongly tracked for months (PR #23 chore). .gitignore
+#       should already catch these, but enforce at commit time too.
+#
+#   G3. .claude/settings.local.json must remain untracked.
+#       It's per-clone local permission state by Claude Code convention.
+#
+# Exits non-zero to block the commit when any rule fails.
+
+set -euo pipefail
+
+fail=0
+
+# Collect staged added/modified/renamed-to files only.
+staged=$(git diff --cached --name-only --diff-filter=AMR)
+
+# --- G1: no hard-coded Windows paths ----------------------------------------
+if [ -n "$staged" ]; then
+  # Only scan config + script + markdown files — binary blobs are out of scope.
+  bad_paths=$(echo "$staged" \
+    | grep -E '\.(json|ps1|md|yaml|yml|sh)$' \
+    | xargs -I{} grep -HnE 'C:/(work/harness-sandbox|Users/AMD)' {} 2>/dev/null || true)
+  if [ -n "$bad_paths" ]; then
+    echo "[pre-commit] G1 FAIL — hard-coded Windows paths staged:" >&2
+    echo "$bad_paths" >&2
+    echo "[pre-commit]        use \${CLAUDE_PROJECT_DIR} instead." >&2
+    fail=1
+  fi
+fi
+
+# --- G2: no journal or tmp scripts ------------------------------------------
+if echo "$staged" | grep -qE '^logs/.*\.jsonl$'; then
+  echo "[pre-commit] G2 FAIL — refusing to stage logs/*.jsonl (runtime artifact)." >&2
+  fail=1
+fi
+if echo "$staged" | grep -qE '^logs/_tmp_.*\.ps1$'; then
+  echo "[pre-commit] G2 FAIL — refusing to stage logs/_tmp_*.ps1 (ad-hoc scratchpad)." >&2
+  echo "[pre-commit]        promote to .claude/skills/<name>/ if worth keeping." >&2
+  fail=1
+fi
+
+# --- G3: settings.local.json untracked ---------------------------------------
+if git ls-files --error-unmatch .claude/settings.local.json >/dev/null 2>&1; then
+  echo "[pre-commit] G3 FAIL — .claude/settings.local.json is tracked." >&2
+  echo "[pre-commit]        run: git rm --cached .claude/settings.local.json" >&2
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "" >&2
+  echo "[pre-commit] Commit blocked. Fix the items above or bypass with --no-verify." >&2
+  exit 1
+fi
+
+exit 0
