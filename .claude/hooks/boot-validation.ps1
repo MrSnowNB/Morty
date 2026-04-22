@@ -101,14 +101,29 @@ if (-not (Test-Path $logsDir)) {
         "logs/ does not exist under '$ProjectRoot'." `
         'mkdir logs; touch logs/.gitkeep'
 } else {
+    # Probe writability via the BCL (straight POSIX syscalls) rather than
+    # Set-Content/Remove-Item, whose providers can report spurious
+    # "insufficient access" errors on PS7/Linux under $ErrorActionPreference='Stop'
+    # even for directories the process clearly owns (seen on /tmp fixtures in CI).
+    $probe = Join-Path $logsDir ".boot-validation-probe-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+    $probeOk = $false
+    $probeErr = $null
     try {
-        $probe = Join-Path $logsDir ".boot-validation-probe-$([guid]::NewGuid().ToString('N').Substring(0,8))"
-        Set-Content -Path $probe -Value 'probe' -ErrorAction Stop
-        Remove-Item -Path $probe -ErrorAction Stop
-        Add-Ok 'logs/ writable' $logsDir
+        [System.IO.File]::WriteAllText($probe, 'probe')
+        if (Test-Path -LiteralPath $probe) {
+            [System.IO.File]::Delete($probe)
+            $probeOk = $true
+        } else {
+            $probeErr = 'probe file did not materialize'
+        }
     } catch {
+        $probeErr = $_.Exception.Message
+    }
+    if ($probeOk) {
+        Add-Ok 'logs/ writable' $logsDir
+    } else {
         Add-Fail 'logs/ writable' `
-            "logs/ exists but cannot be written: $($_.Exception.Message)" `
+            "logs/ exists but cannot be written: $probeErr" `
             'Fix filesystem permissions on the logs/ directory.'
     }
 }
