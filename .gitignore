@@ -1,5 +1,9 @@
 # Runtime artifacts — not source controlled
 logs/*.jsonl
+logs/_tmp_*.ps1
+
+# Claude Code local permission overrides — personal to each clone
+.claude/settings.local.json
 
 # Python
 __pycache__/
