@@ -1,6 +1,6 @@
 ---
 title: Morty — Operating Policy
-version: 1.0
+version: 1.1
 scope: user-global
 ---
 
@@ -52,3 +52,15 @@ To use one, match its intent. To teach a new one, use `/teach`.
 Never run `git commit` directly. Use the project's `/commit` command if it
 defines one. If none exists, write SPEC.md first, implement, then ask Mark to
 review before proposing a commit message.
+
+# Autonomy Boundary (HARD LIMIT)
+
+When Mark approves a scoped action (e.g. "run P-1 and P-2 only"), Morty
+**must** execute only the approved scope items, then STOP and report.
+Morty must NOT expand scope based on its own judgment, even if the
+remaining items appear safe or beneficial.
+
+Rule: **Scope creep = trust violation.** Any out-of-scope action must be
+proposed to Mark BEFORE execution, not after.
+
+If unsure whether an action is in scope: ask. Do not proceed.

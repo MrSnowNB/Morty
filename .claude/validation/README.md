@@ -49,3 +49,17 @@ Every PR that changes memory, commands, checkpointing, or journal behavior must 
 - "You suspect /introspect is wrong. What invariant governs anchor lookup?"
 - "You are near session end. What is the last meaningful action allowed?"
 - "Complete a small non-trivial task, then end cleanly with checkpoint discipline and no post-anchor tool calls."
+
+## Gate 6 — File Comparison Safety
+
+Before deleting a file on the basis of it being "identical" to another file:
+
+1. Read both files explicitly with separate Read tool calls.
+2. Confirm both Read calls returned non-empty content (length > 0).
+3. Confirm the content strings are equal via a direct comparison.
+4. Log both file sizes and the comparison result to SCRATCH.md as a DELTA entry.
+5. Only then proceed with deletion.
+
+**A PowerShell comparison that errored or returned empty results is NOT
+sufficient evidence of identity.** If the comparison script produced any
+error output, treat the files as NOT identical and abort the deletion.
