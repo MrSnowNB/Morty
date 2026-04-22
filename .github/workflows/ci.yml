@@ -70,8 +70,15 @@ jobs:
         run: |
           set -e
           # Scan tracked config + scripts + docs for hard-coded paths retired in PR #23.
+          # Exclude the guardrail files themselves (they must reference the forbidden
+          # patterns to define/document the rule) and archived case studies under
+          # .claude/cases/ (historical evidence of the bug, not live config).
           if git grep -nE 'C:/(work/harness-sandbox|Users/AMD)' -- \
-               '*.json' '*.ps1' '*.md' '*.yaml' '*.yml' '*.sh' 2>/dev/null; then
+               '*.json' '*.ps1' '*.md' '*.yaml' '*.yml' '*.sh' \
+               ':(exclude).github/workflows/ci.yml' \
+               ':(exclude).githooks/pre-commit' \
+               ':(exclude)CONTRIBUTING.md' \
+               ':(exclude).claude/cases/**' 2>/dev/null; then
             echo "::error::Hard-coded Windows paths detected. Use \${CLAUDE_PROJECT_DIR}."
             exit 1
           fi

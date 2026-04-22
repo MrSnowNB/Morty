@@ -26,11 +26,26 @@ function Assert-Equal {
 }
 
 Write-Host "=== 1. Demonstrate the .Reverse() pitfall ===" -ForegroundColor Cyan
+# The original hook bug was `foreach ($b in $pipelineExpr.Reverse()) { ... }`
+# where `$pipelineExpr` was the result of `Where-Object`. Depending on the
+# PowerShell version / platform / how the pipeline materializes, `.Reverse()`
+# on that value either:
+#   (a) returns $null (void in-place mutator on a List/Array), OR
+#   (b) throws because member access maps over elements that lack .Reverse().
+# Either way the foreach body never ran \u2014 the bug. This test accepts either
+# symptom as proof of the pitfall; what matters is that the return value is
+# not a usable reversed collection.
 $arr = 1..5 | Where-Object { $_ -gt 0 }
-$reverseReturn = $arr.Reverse()
-Assert-Equal $null $reverseReturn ".Reverse() returns `$null (void) on a filtered pipeline"
-# Note: $arr itself has been mutated in place to 5,4,3,2,1 \u2014 but the return value is null.
-# The original hook code did `foreach ($b in $pipelineExpr.Reverse())` which iterates over $null.
+$reverseReturn = $null
+$threw = $false
+try {
+  # Suppress the per-statement error so $ErrorActionPreference="Stop" doesn't abort.
+  $reverseReturn = $arr.Reverse() 2>$null
+} catch {
+  $threw = $true
+}
+$isUnsafe = ($threw -or ($null -eq $reverseReturn))
+Assert-Equal $true $isUnsafe ".Reverse() on a filtered pipeline is unsafe (returned `$null or threw)"
 
 Write-Host ""
 Write-Host "=== 2. Correct approach: [Array]::Reverse on @() wrapped array ===" -ForegroundColor Cyan
