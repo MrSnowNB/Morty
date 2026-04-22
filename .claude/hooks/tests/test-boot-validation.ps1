@@ -84,8 +84,10 @@ function Invoke-Validator {
 }
 
 function Assert-Contains {
+    # Uses plain .Contains() (not -like) because the needle may contain square
+    # brackets, which -like treats as character class delimiters.
     param([string]$Haystack, [string]$Needle, [string]$TestName)
-    if ($Haystack -like "*$Needle*") {
+    if ($Haystack -and $Haystack.Contains($Needle)) {
         Write-Host "  PASS  $TestName" -ForegroundColor Green
     } else {
         Write-Host "  FAIL  $TestName" -ForegroundColor Red
