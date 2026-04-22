@@ -11,6 +11,11 @@ changelog:
   2.0: Replace Edit-based anchor with Write-based full-file overwrite.
        Both tasks overwrite SCRATCH.md with byte-identical content so
        chain-miner hashes identical sequences and reports candidates >= 1.
+  3.0: Replace /task-begin and /task-end with direct Add-Content writes to
+       logs/morty-journal.jsonl. Subprocess env changes (task_util.ps1) never
+       propagate to the agent process, so tool_call entries got wrong task_id
+       and chain-seed always produced 0 candidates. Direct journal writes
+       ensure task_begin/task_end entries are visible to mine.ps1 grouping.
 ---
 
 # Playbook: chain-seed
@@ -76,8 +81,11 @@ The strings must be byte-for-byte identical between Task A and Task B.
 
 ### Task A — journal-health-1
 
-```
-/task-begin journal-health-1
+**Step 0: Open task boundary via direct journal write.**
+This writes a `task_begin` entry directly to the journal so mine.ps1 can group tool calls.
+
+```powershell
+$ts = (Get-Date).ToUniversalTime().ToString("o"); $json = '{"ts":"'$ts'","agent_id":"morty","task_id":"journal-health-1","kind":"task_begin","summary":"chain-seed journal-health-1","next_action":null}'; Add-Content -Path logs/morty-journal.jsonl -Value $json -Encoding utf8
 ```
 
 Step 1: Read the last 10 journal lines.
@@ -93,14 +101,18 @@ pwsh -NoProfile -Command "(Get-Content logs/morty-journal.jsonl | Measure-Object
 Step 3: Overwrite SCRATCH.md using the Write tool with the fixed content above.
 Do NOT use Edit. Do NOT Read SCRATCH.md first. One Write call only.
 
-```
-/task-end success
+**Step 4: Close task boundary via direct journal write.**
+
+```powershell
+$ts = (Get-Date).ToUniversalTime().ToString("o"); $json = '{"ts":"'$ts'","agent_id":"morty","task_id":"journal-health-1","kind":"task_end","summary":"success","exit_status":"success"}'; Add-Content -Path logs/morty-journal.jsonl -Value $json -Encoding utf8
 ```
 
 ### Task B — journal-health-2
 
-```
-/task-begin journal-health-2
+**Step 0: Open task boundary** — identical to Task A but with `journal-health-2`.
+
+```powershell
+$ts = (Get-Date).ToUniversalTime().ToString("o"); $json = '{"ts":"'$ts'","agent_id":"morty","task_id":"journal-health-2","kind":"task_begin","summary":"chain-seed journal-health-2","next_action":null}'; Add-Content -Path logs/morty-journal.jsonl -Value $json -Encoding utf8
 ```
 
 Step 1–3: **Identical to Task A.** Same commands, same Write content.
@@ -108,8 +120,10 @@ Step 1–3: **Identical to Task A.** Same commands, same Write content.
 Do NOT reset the anchor first. Do NOT add a Read before the Write.
 One Write call with the same content as Task A — nothing else.
 
-```
-/task-end success
+**Step 4: Close task boundary** — identical to Task A but with `journal-health-2`.
+
+```powershell
+$ts = (Get-Date).ToUniversalTime().ToString("o"); $json = '{"ts":"'$ts'","agent_id":"morty","task_id":"journal-health-2","kind":"task_end","summary":"success","exit_status":"success"}'; Add-Content -Path logs/morty-journal.jsonl -Value $json -Encoding utf8
 ```
 
 ## After the Warm-Up Pair
@@ -140,6 +154,8 @@ If candidates = 0, diagnose in this order:
 | Run diagnostics inside a seed task | Pollutes the tool sequence |
 | Start Task B before Task A is closed | Task bleed — tool calls get wrong task_id |
 | Retry seed tasks without closing dirty ones | Journal accumulates open tasks that never close |
+| Use task_util.ps1 to open/close tasks | Subprocess env never propagates to agent process — tool calls get wrong task_id |
+| Rely on direct journal writes alone | mine.ps1 groups tool_call entries by task_id from agent context, not from journal entries |
 
 ## Success Criteria
 

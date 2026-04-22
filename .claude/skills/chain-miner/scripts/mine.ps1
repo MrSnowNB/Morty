@@ -49,39 +49,82 @@ function Get-ArgShape {
   return $t
 }
 
+# --- Build task boundaries from task_begin/task_end entries ------------------
+# This handles the case where agent-injected task_id differs from journal task_id
+# (e.g. when agent runs inside a different task boundary).
+
+# Collect all boundary entries
+$boundaries = @($entries | Where-Object {
+  $_ -and ($_ .kind -eq "task_begin" -or $_.kind -eq "task_end")
+})
+
+# Build a map: task_id → { begin_ts, end_ts, outcome }
+$boundaryMap = @{}
+foreach ($b in $boundaries) {
+  if ($b.kind -eq "task_begin") {
+    $boundaryMap[$b.task_id] = @{ begin_ts = [datetime]$b.ts; end_ts = $null; outcome = $null }
+  }
+  elseif ($b.kind -eq "task_end") {
+    if ($boundaryMap.ContainsKey($b.task_id)) {
+      $boundaryMap[$b.task_id].end_ts = [datetime]$b.ts
+      $s = [string]$b.summary
+      if     ($s -match '^success') { $boundaryMap[$b.task_id].outcome = "success" }
+      elseif ($s -match '^partial') { $boundaryMap[$b.task_id].outcome = "partial" }
+      elseif ($s -match '^fail')    { $boundaryMap[$b.task_id].outcome = "fail" }
+    }
+  }
+}
+
 # --- Group by task_id --------------------------------------------------------
 $tasks = @{}
 
 foreach ($e in $entries) {
+  if ($e.kind -ne "tool_call") { continue }
   if (-not $e.task_id) { continue }                 # skip v1 entries
   if ($e.task_id -like "skill:chain-miner*") { continue }  # anti-recursion
 
-  if (-not $tasks.ContainsKey($e.task_id)) {
-    $tasks[$e.task_id] = [ordered]@{
+  # Skip boundary-management tools — they pollute chain signatures
+  $toolName = [string]$e.tool
+  if ($toolName -in @('task-util', 'Skill', 'TaskCreate', 'TaskUpdate')) { continue }
+
+  $toolTs = [datetime]$e.ts
+
+  # Find which boundary this tool_call belongs to:
+  # Prefer a matching boundary task_id first, then fall back to any boundary
+  # whose time range contains this tool_call.
+  $assigned = $false
+
+  # Try matching by task_id from the journal entry's task_begin task_id
+  # (tool_calls may have agent-injected task_id that differs)
+  foreach ($bid in $boundaryMap.Keys) {
+    $bd = $boundaryMap[$bid]
+    if ($bd.begin_ts -and $bd.end_ts -and
+        $toolTs -ge $bd.begin_ts -and $toolTs -le $bd.end_ts) {
+      $tid = $bid
+      $assigned = $true
+      break
+    }
+  }
+
+  if (-not $assigned) { continue }  # no matching boundary, skip this tool_call
+
+  if (-not $tasks.ContainsKey($tid)) {
+    $tasks[$tid] = [ordered]@{
       steps   = @()
       outcome = $null
     }
   }
 
-  switch ($e.kind) {
-    "tool_call" {
-      # Skip boundary-management tools — they pollute chain signatures
-      $toolName = [string]$e.tool
-      if ($toolName -in @('task-util', 'Skill', 'TaskCreate', 'TaskUpdate')) { continue }
+  $shape = Get-ArgShape ([string]$e.summary)
+  $tasks[$tid].steps += [ordered]@{
+    tool      = [string]$e.tool
+    arg_shape = $shape
+    exit_status = if ($e.exit_status) { [string]$e.exit_status } else { "ok" }
+  }
 
-      $shape = Get-ArgShape ([string]$e.summary)
-      $tasks[$e.task_id].steps += [ordered]@{
-        tool      = [string]$e.tool
-        arg_shape = $shape
-        exit_status = if ($e.exit_status) { [string]$e.exit_status } else { "ok" }
-      }
-    }
-    "task_end" {
-      $s = [string]$e.summary
-      if     ($s -match '^success') { $tasks[$e.task_id].outcome = "success" }
-      elseif ($s -match '^partial') { $tasks[$e.task_id].outcome = "partial" }
-      elseif ($s -match '^fail')    { $tasks[$e.task_id].outcome = "fail" }
-    }
+  # Also inherit outcome from the boundary
+  if ($boundaryMap.ContainsKey($tid) -and $boundaryMap[$tid].outcome) {
+    $tasks[$tid].outcome = $boundaryMap[$tid].outcome
   }
 }
 
