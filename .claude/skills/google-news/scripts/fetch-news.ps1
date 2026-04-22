@@ -68,6 +68,7 @@ if ($Json) {
             description = $fmt.Source
             source      = $source
             published   = $_.pubDate
+            cluster     = $_.description
         }
     } | ConvertTo-Json -Depth 4
     Write-Output $output
