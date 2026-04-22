@@ -18,17 +18,34 @@ $journal = Join-Path $logDir "morty-journal.jsonl"
 # exit_status: ok|error — derived from tool_response.is_error when present.
 $taskId = $env:MORTY_TASK_ID
 
-# Fallback: if env var is empty, read the most recent task_begin from the journal.
+# Fallback: if env var is empty, read the most recent OPEN task_begin from the journal.
 # The hook runs as a separate pwsh subprocess that doesn't inherit the agent's
 # process env vars, so /task-begin's $env:MORTY_TASK_ID is invisible here.
 # The journal is the shared medium — tail 500 is fast enough.
+# CRITICAL: skip task_begins that have a matching task_end after them (closed tasks).
 if (-not $taskId) {
   if (Test-Path $journal) {
-    $lastBegin = Get-Content $journal -Tail 500 |
-      ConvertFrom-Json |
-      Where-Object { $_ -and $_.kind -eq "task_begin" } |
-      Select-Object -Last 1
-    if ($lastBegin) { $taskId = $lastBegin.task_id }
+    # Read all entries and find task_begin entries
+    $allEntries = Get-Content $journal -Tail 500 | ConvertFrom-Json
+    # Walk backwards through task_begins to find one that's still open
+    $taskBegins = $allEntries | Where-Object { $_ -and $_.kind -eq "task_begin" }
+    foreach ($begin in $taskBegins | ForEach-Object { $_ }) {
+      $beginTaskId = $begin.task_id
+      # Check if there's a task_end for this task_id AFTER this task_begin
+      $hasEnd = $false
+      foreach ($e in $allEntries) {
+        if ($e.kind -eq "task_end" -and $e.task_id -eq $beginTaskId) {
+          # Found a task_end for this task — the task is closed
+          $hasEnd = $true
+          break
+        }
+      }
+      if (-not $hasEnd) {
+        # This task_begin has no matching task_end — it's still open
+        $taskId = $beginTaskId
+        break
+      }
+    }
   }
 }
 $stepIdx = $null
