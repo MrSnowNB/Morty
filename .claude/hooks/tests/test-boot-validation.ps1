@@ -102,10 +102,10 @@ function Assert-Contains {
     } else {
         Write-Host "  FAIL  $TestName" -ForegroundColor Red
         Write-Host "        expected substring: $Needle"
-        Write-Host "        haystack length: $(if ($Haystack) { $Haystack.Length } else { 0 })"
-        if ($Haystack) {
-            Write-Host "        cleaned haystack (ANSI stripped):"
-            $clean -split "`n" | ForEach-Object { Write-Host "          | $_" }
+        if ($clean) {
+            Write-Host "        haystack (ANSI stripped, first 400 chars):" -ForegroundColor DarkGray
+            $sample = $clean.Substring(0, [Math]::Min(400, $clean.Length))
+            Write-Host "        $sample" -ForegroundColor DarkGray
         }
         $script:failures += $TestName
     }
