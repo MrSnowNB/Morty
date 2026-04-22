@@ -83,10 +83,13 @@ jobs:
             New-Item -ItemType Directory -Path $sd -Force | Out-Null
             Set-Content -Path (Join-Path $sd 'SKILL.md') -Value "---`nname: $s`n---`n"
           }
-          # Drop a minimal wired settings.json into the fixture
+          # Drop a minimal wired settings.json into the fixture. Include both
+          # PreToolUse and PostToolUse so the known-good config is genuinely
+          # all-green under -Strict (no warnings).
           $minimal = @{
             hooks = @{
-              PostToolUse = @(@{ matcher='.*'; hooks=@(@{ type='command'; command='x' }) })
+              PreToolUse  = @(@{ matcher='Bash'; hooks=@(@{ type='command'; command='x' }) })
+              PostToolUse = @(@{ matcher='.*';  hooks=@(@{ type='command'; command='x' }) })
             }
             env = @{ MORTY_MODEL = 'ci-smoke' }
           } | ConvertTo-Json -Depth 10
