@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint-powershell:
+    name: PSScriptAnalyzer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force
+
+      - name: Lint hooks and mining scripts
+        shell: pwsh
+        run: |
+          $targets = @(
+            '.claude/hooks/post-tool.ps1',
+            '.claude/hooks/pre-bash.ps1',
+            '.claude/skills/chain-miner/scripts/mine.ps1',
+            '.claude/skills/journal-anchor/scripts/append.ps1',
+            '.claude/skills/self-benchmark/scripts/benchmark.ps1',
+            '.claude/skills/safe-bash/scripts/run.ps1',
+            '.claude/skills/pdf-read/scripts/extract.ps1',
+            '.claude/skills/doc-convert/scripts/pandoc.ps1',
+            '.claude/hooks/tests/test-post-tool-fallback.ps1'
+          ) | Where-Object { Test-Path $_ }
+
+          $results = foreach ($t in $targets) {
+            Write-Host "::group::$t"
+            $r = Invoke-ScriptAnalyzer -Path $t -Severity Error,Warning
+            $r | Format-Table -AutoSize | Out-Host
+            Write-Host "::endgroup::"
+            $r
+          }
+
+          # Treat Errors as CI failures. Warnings print but do not fail.
+          $errors = $results | Where-Object { $_.Severity -eq 'Error' }
+          if ($errors) {
+            Write-Host "::error::PSScriptAnalyzer found $($errors.Count) error(s)."
+            exit 1
+          }
+          Write-Host "PSScriptAnalyzer: 0 errors."
+
+      - name: Run post-tool fallback regression test
+        shell: pwsh
+        run: |
+          if (Test-Path .claude/hooks/tests/test-post-tool-fallback.ps1) {
+            pwsh -NoProfile -File .claude/hooks/tests/test-post-tool-fallback.ps1
+          } else {
+            Write-Host "::warning::Fallback test script missing"
+          }
+
+  check-hygiene:
+    name: Hygiene checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Forbid machine-specific Windows paths
+        run: |
+          set -e
+          # Scan tracked config + scripts + docs for hard-coded paths retired in PR #23.
+          if git grep -nE 'C:/(work/harness-sandbox|Users/AMD)' -- \
+               '*.json' '*.ps1' '*.md' '*.yaml' '*.yml' '*.sh' 2>/dev/null; then
+            echo "::error::Hard-coded Windows paths detected. Use \${CLAUDE_PROJECT_DIR}."
+            exit 1
+          fi
+          echo "No hard-coded Windows paths."
+
+      - name: Forbid tracked runtime journal
+        run: |
+          if git ls-files | grep -E '^logs/.*\.jsonl$'; then
+            echo "::error::logs/*.jsonl is runtime state and must not be tracked."
+            exit 1
+          fi
+          echo "No tracked .jsonl under logs/."
+
+      - name: Forbid tracked settings.local.json
+        run: |
+          if git ls-files | grep -q '^\.claude/settings\.local\.json$'; then
+            echo "::error::.claude/settings.local.json must remain untracked (per-clone state)."
+            exit 1
+          fi
+          echo "settings.local.json is not tracked."
+
+      - name: Forbid tracked _tmp_ scripts under logs/
+        run: |
+          if git ls-files | grep -E '^logs/_tmp_.*\.ps1$'; then
+            echo "::error::logs/_tmp_*.ps1 scripts must not be committed (promote to a skill instead)."
+            exit 1
+          fi
+          echo "No tracked _tmp_ scripts under logs/."
