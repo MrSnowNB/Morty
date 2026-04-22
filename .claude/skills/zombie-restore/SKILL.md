@@ -1,6 +1,6 @@
 ---
 title: Skill — zombie-restore
-version: 1.1
+version: 1.2
 ---
 
 # Skill: zombie-restore
@@ -89,6 +89,32 @@ Log a brief zombie-restore result to SCRATCH.md:
 - Gate 4 LoRa-Mux mode: WIDE / STANDARD / LORA
 - Result: PROCEED / MINIMAL-MODE / BLOCKED
 ```
+
+## Result States (summary)
+
+| State         | Meaning                              | Action                           |
+|---------------|--------------------------------------|----------------------------------|
+| PASS          | Journal clean, memories loaded       | Proceed to chain-seed            |
+| PARTIAL       | Some memory files unanchored         | Load all, tag unanchored         |
+| MINIMAL-MODE  | Degraded but runnable (Gate 1 FAIL)  | Warn Mark, proceed with caution  |
+| FAIL          | Critical state corrupt               | Stop, report to Mark             |
+| BLOCKED       | Cannot read journal or SCRATCH.md    | Stop completely                  |
+
+After a successful run, hand off with:
+
+```
+ZOMBIE-RESTORE: [PASS|PARTIAL|MINIMAL-MODE]
+Journal: [n lines], [n unclosed tasks]
+Ready for chain-seed.
+```
+
+## Anti-patterns
+
+| Anti-pattern | Why it breaks |
+|---|---|
+| Skip zombie-restore "to save time" | State corruption accumulates silently |
+| Run zombie-restore mid-session | Overwrites a valid block with stale data |
+| Report PASS without checking journal | False confidence — stale tasks persist |
 
 ## Hard Rules
 
