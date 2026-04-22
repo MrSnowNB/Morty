@@ -1,8 +1,11 @@
-# FP Solve: google-news tool — 2026-04-22
+# FP Solve: internet-sourced news with AI mode — 2026-04-22
 
 ## Problem Statement
 
-Build a tool (skill) that retrieves the **top 5 news story headlines and first paragraphs** from Google News. Output should be clean, machine-readable or human-readable, and invocable via the skill system.
+Redesign the google-news workflow:
+1. **Phase 1:** Present only headlines (no agent-generated summaries)
+2. **Phase 2:** When user asks for clarification on a headline, use WebSearch (AI mode) to gather real information
+3. **Long-term:** Learn how to source truthful, trusted internet content
 
 ---
 
@@ -10,21 +13,21 @@ Build a tool (skill) that retrieves the **top 5 news story headlines and first p
 
 | # | Assumption | Type | Challenge | Verdict |
 |---|-----------|------|-----------|---------|
-| A1 | Google News has a free, no-auth data feed | belief | Google shut down the old Google News API in 2020, but RSS feeds at `news.google.com/rss` still exist and are widely used. | **keep** |
-| A2 | We need to scrape the website | belief | The website requires JS rendering (Playwright). Fragile, slow, against ToS. RSS is the intended machine-readable surface. | **discard** |
-| A3 | A third-party API is needed | convention | Paid APIs exist (NewsAPI, GNews, etc.) but add cost, API keys, and external dependencies. RSS is free and built-in. | **discard** |
-| A4 | "First paragraph" = RSS description | belief | RSS `<description>` is a snippet (often 2-3 sentences), not the full first paragraph. Getting the true first paragraph requires fetching the article URL, adding latency and failure surface. | **revise** — use RSS description as the paragraph; document the limitation |
-| A5 | PowerShell is the right scripting language | convention | User runs Windows/PowerShell. PowerShell can parse XML natively. No external deps needed. | **keep** |
+| A1 | WebSearch can replace article fetching | belief | WebSearch is a text-based index, not a browser. It returns snippets, not full articles. But it does return URLs to authoritative sources. | **keep** — better than agent hallucination |
+| A2 | Agent-generated summaries are unreliable | belief | The model generates content based on training data, not real-time facts. For news, this means outdated or fabricated context. | **keep** — well-documented LLM limitation |
+| A3 | "AI mode" = WebSearch in this context | belief | The user references "AI mode" — in Claude Code, this maps to WebSearch (real-time internet search). Not Playwright/browser. | **keep** — WebSearch is the internet tool available |
+| A4 | We need a two-phase workflow (headlines → search) | convention | Could just always search. But that's slow and noisy. Headlines first, then drill down on demand. | **keep** — user explicitly requested this |
+| A5 | Trustworthiness is solvable | belief | No single source is perfectly trustworthy. But we can build a heuristic: multiple sources, established outlets, transparent attribution. | **revise** — trustworthiness is probabilistic, not binary |
 
 ---
 
 ## Phase 2 — Ground Truths
 
-- **GT-1:** Google News RSS feeds are available at `https://news.google.com/rss` with no authentication required.
-- **GT-2:** RSS feeds return standard XML with `<title>`, `<link>`, `<description>`, `<pubDate>`, and `<source>` elements per item.
-- **GT-3:** The top stories feed URL is `https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en`.
-- **GT-4:** PowerShell has `Invoke-RestMethod` (built-in cmdlet) that auto-parses XML into structured objects.
-- **GT-5:** A skill in this project lives in `.claude/skills/<name>/` with `SKILL.md` containing `description:`, `Steps:`, and `Gotchas:`.
+- **GT-1:** WebSearch is a built-in Claude Code tool that queries the real internet and returns indexed snippets with source URLs.
+- **GT-2:** WebSearch has a 500-character query limit and returns up to 250 chars per snippet.
+- **GT-3:** The current `google-news` skill generates agent summaries from headlines — this is a known hallucination risk.
+- **GT-4:** Google News RSS provides clean headlines + source + timestamp but NO article content.
+- **GT-5:** A skill's SKILL.md defines `description:`, `Steps:`, `Gotchas:` for agent discovery.
 
 ---
 
@@ -32,91 +35,80 @@ Build a tool (skill) that retrieves the **top 5 news story headlines and first p
 
 | ID | Sub-problem | Success | Failure | Approach |
 |----|------------|---------|---------|----------|
-| SP-1 | Fetch Google News RSS feed | Get valid XML response | Network error, feed changed | Direct fetch |
-| SP-2 | Parse XML into structured items | Extract title, link, description, source, date | Invalid XML, changed schema | PowerShell `Invoke-RestMethod` |
-| SP-3 | Limit to top 5 | Exactly 5 items returned | Feed has fewer than 5 | Select-Object -First 5 |
-| SP-4 | Format output cleanly | Readable text or JSON | Messy formatting | PowerShell formatting |
-| SP-5 | Package as a skill | Invocable via Skill tool | Not discoverable | SKILL.md + script |
+| SP-1 | Simplify output to headlines only | Script outputs clean headline list | Output still contains summaries | Modify SKILL.md + script |
+| SP-2 | Enable WebSearch on demand | User asks for clarification → agent searches | Search returns irrelevant results | Design search query pattern |
+| SP-3 | Present search results credibly | User sees source, snippet, link | Agent paraphrases without attribution | Always cite source, show snippet verbatim |
+| SP-4 | Build trustworthiness heuristics | Agent can distinguish quality sources | Agent treats all sources equally | Source tiering by outlet reputation |
 
 ---
 
-## Phase 4 — Solved (with adjustments)
+## Phase 4 — Solving
 
-### SP-1 + SP-2 + SP-3: Fetch, parse, limit
+### SP-1: Headlines-only output
 
-Used `Invoke-RestMethod` to fetch RSS XML. It auto-parses into PowerShell objects.
-Key discovery: `Invoke-RestMethod` returns a **flat array** of items, NOT wrapped in `.rss.channel.item` as expected from standard RSS. This was a schema divergence from textbook RSS.
+**Approach:** Modify SKILL.md to stop generating summaries. Script outputs clean headline list. Agent presents only:
+- Headline
+- Source name
+- Timestamp
+- Link (for user to click)
 
-### SP-4: Format output
+No agent-generated content.
 
-Two modes:
-1. **Text mode (default):** Delimited lines between `TOP_STORY_START`/`TOP_STORY_END` markers for easy parsing
-2. **Machine-readable** (`--json` flag): JSON array
+### SP-2: WebSearch on demand
 
-### SP-5: Package as a skill
+**Approach:** When user asks for details on a headline, the agent uses WebSearch with the headline as the query. Returns real indexed content from actual sources.
 
-Created `.claude/skills/google-news/` with `SKILL.md` and `scripts/fetch-news.ps1`.
+### SP-3 + SP-4: Trustworthy presentation
+
+**Approach:** Search results are presented verbatim with source attribution. No paraphrasing. Source tiering:
+- Tier 1: Major wire services (AP, Reuters, AFP)
+- Tier 2: Established national outlets
+- Tier 3: Regional/local outlets
+- Tier 4: Blogs, opinion, unverified
 
 ---
 
-## Phase 5 — Error Handling (updated)
+## Phase 5 — Error Handling
 
 | Error | Cause | Mitigation |
 |-------|-------|------------|
-| RSS feed returns empty or malformed | Google changed format | Surface error verbatim |
-| Network timeout | Connectivity issue | 15s timeout on fetch |
-| Fewer than 5 items | Feed is thin | Return what's available |
-| Article paragraph extraction fails | Google News proxy URLs redirect to JS-rendered pages | Agent generates summary from headline context |
+| WebSearch returns no results | Query too specific or new story | Broaden query, try alternative keywords |
+| WebSearch returns low-quality sources | Topic is fringe or emerging | Flag source quality, note uncertainty |
+| WebSearch timeout | Network issue | Surface error, try once more |
 
 ---
 
-## Phase 6 — Final Solution Design
-
-**Tool: `google-news`**
-
-```
-.claude/skills/google-news/
-├── SKILL.md
-└── scripts/
-    └── fetch-news.ps1
-```
+## Phase 6 — Solution Design
 
 **Workflow:**
-1. Script fetches RSS and returns JSON with title, link, source, published
-2. Agent generates 2-3 sentence summary from headline context
-3. Agent presents formatted output
+```
+1. User: "tell me the news"
+   → Script: headlines only (title, source, time, link)
+   → Agent: presents cleanly, no summaries
 
-**Key design decisions:**
-- RSS provides headlines + source names, NOT full article text (Google News proxy URLs serve JS-rendered pages)
-- Agent-generated summaries are the practical compromise: fast, no browser needed
-- JSON output mode for machine parsing; delimited text mode for human reading
+2. User: "tell me more about #2"
+   → Agent: WebSearch(query = headline + keywords)
+   → Agent: presents search results with source attribution
+   → Agent: discusses with user (dialogue, not monologue)
+```
+
+**Key principle:** Agent is a conductor, not an author. It surfaces real information, doesn't manufacture it.
 
 ---
 
 ## Phase 7 — Validation
 
-- GT-1 → RSS feed is accessible (tested successfully, 38 items returned)
-- GT-4 → `Invoke-RestMethod` is built-in PowerShell (always available)
-- GT-5 → Skill packaging follows existing project convention
-- Tested end-to-end: script produces valid JSON with 5 clean entries
+- GT-1 → WebSearch returns real internet content (tested in previous sessions)
+- GT-3 → Agent summaries are a known hallucination pattern (well-documented)
+- GT-4 → RSS headlines are factual metadata (verified)
 
-**What would falsify this:** Google News RSS feed goes away or requires auth.
+**What would falsify this:** WebSearch goes unavailable, or RSS feed disappears.
 
 ---
 
-## Phase 8 — Post-Mortem
+## Phase 8 — Self-Improvement
 
-**Problem:** Build a tool to get top 5 news headlines and first paragraphs from Google News.
-
-**Breakthrough:** Google News RSS is free, no-auth, and well-structured — but it does NOT include article content. The proxy URLs redirect to JS-rendered pages. The practical solution: RSS for headlines + agent-generated summaries.
-
-**Failed approaches:**
-- Direct article fetching via HTTP: Google News proxy URLs don't serve article HTML, they redirect to JS-rendered pages
-- Playwright-based fetching: would work but takes 30-60s per article, fragile
-
-**Reusable heuristics:**
-- RSS feeds from major services are reliable when available; don't over-engineer around their limitations
-- When the "obvious" data source (RSS) doesn't provide the desired field, find the pragmatic substitute rather than fighting the system
-- Agent-generated content is a valid substitute when the data source is constrained
-
-**Candidate skill improvement:** Generalize to arbitrary RSS feeds by accepting a feed URL parameter.
+**Candidate skill: internet-news**
+- General pattern: fetch headlines → search on demand → present with attribution
+- Applies to any topic where real-time factual accuracy matters
+- Trustworthiness heuristic: source tiering + multiple-source corroboration
