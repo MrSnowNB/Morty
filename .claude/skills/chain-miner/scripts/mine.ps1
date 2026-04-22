@@ -87,26 +87,28 @@ foreach ($e in $entries) {
   $toolName = [string]$e.tool
   if ($toolName -in @('task-util', 'Skill', 'TaskCreate', 'TaskUpdate')) { continue }
 
-  $toolTs = [datetime]$e.ts
-
-  # Find which boundary this tool_call belongs to:
-  # Prefer a matching boundary task_id first, then fall back to any boundary
-  # whose time range contains this tool_call.
-  $assigned = $false
-
-  # Try matching by task_id from the journal entry's task_begin task_id
-  # (tool_calls may have agent-injected task_id that differs)
-  foreach ($bid in $boundaryMap.Keys) {
-    $bd = $boundaryMap[$bid]
-    if ($bd.begin_ts -and $bd.end_ts -and
-        $toolTs -ge $bd.begin_ts -and $toolTs -le $bd.end_ts) {
-      $tid = $bid
-      $assigned = $true
-      break
+  # Primary path: trust the tool_call's task_id. Post-B1 the hook fallback
+  # sets task_id correctly, so the boundary map lookup is O(1) and exact.
+  $tid = $null
+  if ($boundaryMap.ContainsKey($e.task_id)) {
+    $tid = $e.task_id
+  } else {
+    # Legacy fallback: tool_call has a task_id but no matching boundary
+    # (e.g. boundaries aged out of the -Tail window, or pre-B1 entries where
+    # the hook wrote the wrong task_id). Fall back to timestamp containment
+    # over closed boundaries only.
+    $toolTs = [datetime]$e.ts
+    foreach ($bid in $boundaryMap.Keys) {
+      $bd = $boundaryMap[$bid]
+      if ($bd.begin_ts -and $bd.end_ts -and
+          $toolTs -ge $bd.begin_ts -and $toolTs -le $bd.end_ts) {
+        $tid = $bid
+        break
+      }
     }
   }
 
-  if (-not $assigned) { continue }  # no matching boundary, skip this tool_call
+  if (-not $tid) { continue }  # no matching boundary, skip this tool_call
 
   if (-not $tasks.ContainsKey($tid)) {
     $tasks[$tid] = [ordered]@{
