@@ -16,6 +16,8 @@ scope: user-global
 @memories/03-context-hygiene.md
 @memories/04-runtime-profile.md
 @memories/05-self-extension.md
+@memories/06-tiered-memory.md
+@memories/07-default-framing.md
 
 # Runtime Contract
 
