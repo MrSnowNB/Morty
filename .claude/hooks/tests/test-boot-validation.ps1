@@ -94,8 +94,8 @@ function Assert-Contains {
         Write-Host "        expected substring: $Needle"
         Write-Host "        haystack length: $(if ($Haystack) { $Haystack.Length } else { 0 })"
         if ($Haystack) {
-            $sample = $Haystack.Substring(0, [Math]::Min(500, $Haystack.Length))
-            Write-Host "        haystack sample: $sample"
+            Write-Host "        haystack full:"
+            $Haystack -split "`n" | ForEach-Object { Write-Host "          | $_" }
         }
         $script:failures += $TestName
     }
