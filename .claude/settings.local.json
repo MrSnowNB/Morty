@@ -11,7 +11,8 @@
       "WebFetch(domain:github.com)",
       "Bash(curl *)",
       "Bash(/TaskBegin *)",
-      "Bash('$_.kind' -eq anchor -or)"
+      "Bash('$_.kind' -eq anchor -or)",
+      "Bash(/task-begin seed-a *)"
     ]
   },
   "outputStyle": "Explanatory"
