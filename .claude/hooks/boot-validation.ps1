@@ -185,29 +185,43 @@ if ($warns.Count -eq 0 -or -not ($warns | Where-Object { $_.name -eq 'expected s
 
 # ---------------------------------------------------------------------------
 # Report
+#
+# Use [Console]::WriteLine directly so output is captured when stdout is
+# piped (child-process invocation, CI). Write-Host goes to the Information
+# stream, which PowerShell on Linux does not route to pipe-stdout in all
+# hosts. ANSI colors are kept via raw escape codes for interactive use.
 # ---------------------------------------------------------------------------
+$esc = [char]27
+$C_RESET = "$esc[0m"
+$C_CYAN  = "$esc[36m"
+$C_GREEN = "$esc[32m"
+$C_YELL  = "$esc[33m"
+$C_RED   = "$esc[31m"
+$C_DIM   = "$esc[2m"
+
 $sep = '-' * 60
-Write-Host ''
-Write-Host 'Morty boot validation' -ForegroundColor Cyan
-Write-Host $sep
+[Console]::WriteLine('')
+[Console]::WriteLine("${C_CYAN}Morty boot validation${C_RESET}")
+[Console]::WriteLine($sep)
 
 foreach ($o in $oks) {
-    Write-Host "  [ OK ] $($o.name)" -ForegroundColor Green -NoNewline
-    if ($o.detail) { Write-Host " — $($o.detail)" -ForegroundColor DarkGray } else { Write-Host '' }
+    $line = "  ${C_GREEN}[ OK ]${C_RESET} $($o.name)"
+    if ($o.detail) { $line += " ${C_DIM}— $($o.detail)${C_RESET}" }
+    [Console]::WriteLine($line)
 }
 foreach ($w in $warns) {
-    Write-Host "  [WARN] $($w.name)" -ForegroundColor Yellow
-    Write-Host "         $($w.detail)" -ForegroundColor DarkYellow
-    if ($w.fix) { Write-Host "         fix: $($w.fix)" -ForegroundColor DarkGray }
+    [Console]::WriteLine("  ${C_YELL}[WARN]${C_RESET} $($w.name)")
+    [Console]::WriteLine("         $($w.detail)")
+    if ($w.fix) { [Console]::WriteLine("         ${C_DIM}fix: $($w.fix)${C_RESET}") }
 }
 foreach ($f in $fails) {
-    Write-Host "  [FAIL] $($f.name)" -ForegroundColor Red
-    Write-Host "         $($f.detail)" -ForegroundColor DarkRed
-    if ($f.fix) { Write-Host "         fix: $($f.fix)" -ForegroundColor DarkGray }
+    [Console]::WriteLine("  ${C_RED}[FAIL]${C_RESET} $($f.name)")
+    [Console]::WriteLine("         $($f.detail)")
+    if ($f.fix) { [Console]::WriteLine("         ${C_DIM}fix: $($f.fix)${C_RESET}") }
 }
-Write-Host $sep
-Write-Host "  summary: $($oks.Count) OK, $($warns.Count) WARN, $($fails.Count) FAIL"
-Write-Host ''
+[Console]::WriteLine($sep)
+[Console]::WriteLine("  summary: $($oks.Count) OK, $($warns.Count) WARN, $($fails.Count) FAIL")
+[Console]::WriteLine('')
 
 if ($Json) {
     $summary = [pscustomobject]@{

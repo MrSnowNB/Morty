@@ -50,17 +50,36 @@ function New-Fixture {
 
 function Invoke-Validator {
     param([string]$Root, [string]$SettingsPath, [hashtable]$EnvOverrides = @{})
-    # Save current env and override
+    # Save current env and override via $env: (inherited by child pwsh processes on all platforms).
     $saved = @{}
-    foreach ($k in @('CLAUDE_PROJECT_DIR','MORTY_MODEL')) { $saved[$k] = [Environment]::GetEnvironmentVariable($k) }
-    foreach ($k in $EnvOverrides.Keys) { [Environment]::SetEnvironmentVariable($k, $EnvOverrides[$k]) }
+    foreach ($k in @('CLAUDE_PROJECT_DIR','MORTY_MODEL','MORTY_DENYLIST')) {
+        $saved[$k] = [Environment]::GetEnvironmentVariable($k)
+        # Clear by default so prior test state does not leak
+        Set-Item -Path "env:$k" -Value '' -ErrorAction SilentlyContinue
+        Remove-Item -Path "env:$k" -ErrorAction SilentlyContinue
+    }
+    foreach ($k in $EnvOverrides.Keys) {
+        $v = $EnvOverrides[$k]
+        if ($null -eq $v) {
+            Remove-Item -Path "env:$k" -ErrorAction SilentlyContinue
+        } else {
+            Set-Item -Path "env:$k" -Value $v
+        }
+    }
     try {
-        $out = & pwsh -NoProfile -File $validator -ProjectRoot $Root -SettingsPath $SettingsPath -Json 2>&1 | Out-String
+        # Write-Host writes to the Information stream (6); merge all streams so we can assert on the human-readable output.
+        $out = & pwsh -NoProfile -File $validator -ProjectRoot $Root -SettingsPath $SettingsPath -Json *>&1 | Out-String
         $exit = $LASTEXITCODE
         return @{ Output = $out; ExitCode = $exit }
     }
     finally {
-        foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) }
+        foreach ($k in $saved.Keys) {
+            if ($null -eq $saved[$k]) {
+                Remove-Item -Path "env:$k" -ErrorAction SilentlyContinue
+            } else {
+                Set-Item -Path "env:$k" -Value $saved[$k]
+            }
+        }
     }
 }
 
@@ -76,11 +95,16 @@ function Assert-Contains {
 }
 
 function Assert-ExitCode {
-    param([int]$Expected, [int]$Actual, [string]$TestName)
+    param([int]$Expected, [int]$Actual, [string]$TestName, [string]$DebugOutput = '')
     if ($Expected -eq $Actual) {
         Write-Host "  PASS  $TestName" -ForegroundColor Green
     } else {
         Write-Host "  FAIL  $TestName (expected exit $Expected, got $Actual)" -ForegroundColor Red
+        if ($DebugOutput) {
+            Write-Host "        --- validator output ---" -ForegroundColor DarkGray
+            $DebugOutput -split "`n" | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+            Write-Host "        --- end ---" -ForegroundColor DarkGray
+        }
         $script:failures += $TestName
     }
 }
@@ -96,7 +120,7 @@ $f = New-Fixture -CreateLogs -CreateSkills -Settings @{
     }
 }
 $r = Invoke-Validator -Root $f.Root -SettingsPath $f.Settings -EnvOverrides @{ CLAUDE_PROJECT_DIR = $f.Root; MORTY_MODEL = 'test-model' }
-Assert-ExitCode 0 $r.ExitCode 'all-green exits 0'
+Assert-ExitCode 0 $r.ExitCode 'all-green exits 0' $r.Output
 Assert-Contains $r.Output '[ OK ] CLAUDE_PROJECT_DIR' 'all-green reports OK for CLAUDE_PROJECT_DIR'
 Assert-Contains $r.Output '[ OK ] PostToolUse hook wired' 'all-green reports OK for PostToolUse'
 Remove-Item -Path $f.Root -Recurse -Force -ErrorAction SilentlyContinue
@@ -136,7 +160,7 @@ $f = New-Fixture -CreateLogs -Settings @{
     hooks = @{ PostToolUse = @(@{ matcher='.*'; hooks=@(@{type='command';command='x'}) }) }
 }
 $r = Invoke-Validator -Root $f.Root -SettingsPath $f.Settings -EnvOverrides @{ CLAUDE_PROJECT_DIR = $f.Root; MORTY_MODEL = 'env-says-B' }
-Assert-ExitCode 0 $r.ExitCode 'model drift is a warning (exit 0)'
+Assert-ExitCode 0 $r.ExitCode 'model drift is a warning (exit 0)' $r.Output
 Assert-Contains $r.Output '[WARN] MORTY_MODEL agreement' 'model drift is flagged as WARN'
 Remove-Item -Path $f.Root -Recurse -Force -ErrorAction SilentlyContinue
 
