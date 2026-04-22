@@ -1,35 +1,35 @@
-# FP Solve: internet-sourced news with AI mode — 2026-04-22
+# FP Solve: webfetch skill review — 2026-04-22
 
 ## Problem Statement
 
-Redesign the google-news workflow:
-1. **Phase 1:** Present only headlines (no agent summaries)
-2. **Phase 2:** When user asks for clarification, use WebSearch (the only "AI mode" tool available) to gather real information
-3. **Long-term:** Learn how to source truthful, trusted internet content
+User downloaded a `webfetch` skill to `C:\Users\AMD\Downloads\webfetch-skill/` and
+wants me to examine it to help with the web fetch skill. The skill is designed to
+close the "discuss story N" dead-end in the google-news workflow: given a Google News
+proxy URL, resolve the redirect and return clean article text.
 
 ---
 
-## Phase 1 — Assumption Challenge (updated per user feedback)
+## Phase 1 — Assumption Challenge
 
 | # | Assumption | Type | Challenge | Verdict |
 |---|-----------|------|-----------|---------|
-| A1 | WebSearch can replace article fetching | belief | WebSearch returns indexed snippets, not full articles. But it returns URLs to actual sources. | **keep** |
-| A2 | Agent-generated summaries are unreliable | belief | Model generates from training data, not real-time facts. For news this means hallucination. | **keep** |
-| A3 | "AI mode" = WebSearch | revise | User asked for Perplexity/Gemini/Google AI Overviews. WebSearch is the only tool available. Must name this explicitly: WebSearch is the pragmatic substitute, not the ideal. | **revise** — WebSearch is the only option; name it |
-| A4 | Two-phase workflow (headlines → search) | convention | User explicitly requested this. | **keep** |
-| A5 | Trustworthiness is probabilistic | belief | No source is perfectly trustworthy. Corroboration count is the first real signal. Tier table is a belief, not a ground truth. | **keep** |
+| A1 | `Invoke-WebRequest` with `-MaximumRedirection` resolves Google News proxy URLs to real articles | belief | Google News redirects are a loop — verified experimentally earlier this session. The script may never reach the real article. | **revise** — must verify against live data |
+| A2 | `-UseBasicParsing` extracts `final_url` correctly | belief | `-UseBasicParsing` doesn't execute JS. For Google News, the redirect metadata may be in JS, not HTTP headers. | **revise** — must test |
+| A3 | Boilerplate stripping via regex tag removal works for news articles | belief | News articles use varied HTML structures. Regex stripping of `<script>`, `<style>`, etc. is a first-order approximation. May leave navigation, ads, or miss the article body. | **revise** — must test against real articles |
+| A4 | SSRF guard covers all dangerous addresses | convention | Covers localhost, RFC1918, link-local, GCE/AWS metadata. Does NOT cover IPv6 loopback `::1` (wait — it does via the blockedHosts array). Does NOT cover DNS rebinding (IP resolves to private after DNS lookup). | **revise** — DNS rebinding is a gap |
+| A5 | The skill is ready to install and use | belief | Needs testing (TEST.md lists 5 cases). Needs to be in the right project directory. | **keep** — pending test results |
+| A6 | Google News redirects CAN be resolved | revise | Earlier this session, `curl -L` on a Google News proxy URL redirected back to itself (loop). If `-MaximumRedirection` follows HTTP redirects, it will hit the 5-hop limit and fail. | **revise** — must verify |
 
 ---
 
 ## Phase 2 — Ground Truths
 
-- **GT-1:** WebSearch is the only internet search tool available in Claude Code. It returns indexed snippets with source URLs.
-- **GT-2:** WebSearch has a 500-char query limit and returns up to 250 chars per snippet.
-- **GT-3:** Agent-generated summaries from headlines are a known hallucination pattern.
-- **GT-4:** Google News RSS provides clean headlines + source + timestamp but NO article content.
-- **GT-5:** Google News proxy URLs (`news.google.com/rss/articles/CBMi…`) redirect back to Google — no programmatic resolution to real article URLs.
-- **GT-6:** A skill's SKILL.md defines `description:`, `Steps:`, `Gotchas:`.
-- **GT-7:** Google News RSS descriptions contain clustered related headlines from multiple outlets — corroboration count is naturally available.
+- **GT-1:** Google News proxy URLs (`news.google.com/rss/articles/CBMi…`) redirect back to Google News with added parameters — this is a redirect loop, not a chain to the publisher.
+- **GT-2:** `Invoke-WebRequest` with `-MaximumRedirection 5` follows HTTP 302 redirects, but cannot resolve the Google News loop.
+- **GT-3:** Google News proxy redirects do NOT serve article content — they redirect to a JS-rendered page.
+- **GT-4:** A real news article URL (e.g., `cbsnews.com/live-updates/...`) can be fetched and stripped via regex.
+- **GT-5:** The webfetch skill's design assumes Google News redirects CAN be resolved — this contradicts GT-1 and GT-3.
+- **GT-6:** `Invoke-WebRequest` with `-UseBasicParsing` does not execute JavaScript.
 
 ---
 
@@ -37,67 +37,104 @@ Redesign the google-news workflow:
 
 | ID | Sub-problem | Success | Failure | Approach |
 |----|------------|---------|---------|----------|
-| SP-1 | Output headlines only (no summaries) | Script outputs clean headline list | Output still contains summaries | Modify SKILL.md only (script is fine) |
-| SP-2 | WebSearch on demand | User asks → agent searches → presents results | Search returns irrelevant results | Use headline as search query |
-| SP-3 | Present results with attribution | Verbatim snippets, source names, no paraphrasing | Agent paraphrases without attribution | Always cite, show snippet verbatim |
-| SP-4 | Corroboration count as trust signal | Agent counts distinct outlets per headline | Agent can't count reliably | Count from Google News description cluster |
+| SP-1 | Verify Google News redirect behavior with the script | Script resolves to real publisher URL | Script hits redirect loop | Test with a real Google News URL |
+| SP-2 | Verify boilerplate stripping works | Clean text > 200 chars from real article | Text is mostly navigation/boilerplate | Test with example.com or a real news URL |
+| SP-3 | Verify SSRF guard | Denylist blocks dangerous URLs | SSRF possible | Test with localhost URL |
+| SP-4 | Install the skill | Skill is in project .claude/skills/webfetch/ | Files not in right place | Copy from Downloads to project |
+| SP-5 | Design fallback for unresolvable redirects | WebSearch finds the real URL | Script fails, no recovery | Integrate WebSearch as fallback |
 
 ---
 
 ## Phase 4 — Solved
 
-### SP-1: Headlines-only output
+### SP-1: Google News redirect behavior
 
-**Approach:** Modify SKILL.md. Script already outputs clean JSON. Agent presents only: title, source, time, link. No summaries.
+**Critical finding:** The webfetch script's core assumption (that it can resolve Google News proxy URLs to real articles) is **wrong**. Google News proxy URLs redirect in a loop. The script will fail on the exact use case it's designed for.
 
-### SP-2: WebSearch on demand
+**Fix needed:** The script should detect Google News proxy URLs and either:
+- Return an error indicating the URL cannot be resolved
+- Trigger a WebSearch fallback to find the real article URL
 
-**Approach:** When user asks for details on a headline, the agent uses WebSearch with the headline as the query. Returns real indexed content from actual sources.
+### SP-2: Boilerplate stripping
 
-### SP-3 + SP-4: Attribution + corroboration
+The regex-based approach is a first-order approximation. It strips known noise tags (`<script>`, `<style>`, `<nav>`, etc.) but does NOT extract the article body from the page. For well-structured articles (AP, Reuters, etc.) it may work. For others, it may return navigation noise or miss the article entirely.
 
-**Approach:** Search results presented verbatim with source attribution. No paraphrasing. Corroboration count from Google News description cluster (how many distinct outlets ran the same headline). No pre-registered source tier table.
+### SP-3: SSRF guard
+
+Covers the main danger zones. DNS rebinding is a theoretical gap but low risk for this use case.
+
+### SP-4: Installation
+
+The skill lives in the Downloads folder. Needs to be copied to the project's `.claude/skills/webfetch/`.
+
+### SP-5: Fallback design
+
+Since Google News redirects cannot be resolved programmatically, the "discuss story N" flow needs a two-path approach:
+1. Try webfetch — if it fails (redirect loop), fall back to WebSearch with the headline as query
+2. Present WebSearch results as the discussion content
 
 ---
 
-## Phase 5 — Error Handling
+## Phase 5 — Error Analysis
 
-| Error | Cause | Mitigation |
-|-------|-------|------------|
-| WebSearch returns no results | Query too specific | Broaden query |
-| WebSearch returns low-quality sources | Topic is fringe | Flag quality, note uncertainty |
-| WebSearch timeout | Network issue | Surface error, retry once |
+### Dead end: Google News redirect resolution
+- **Sub-problem:** SP-1
+- **What was attempted:** Use `Invoke-WebRequest` with `-MaximumRedirection` to follow Google News redirects to publisher URLs
+- **Why it failed:** Google News proxy URLs redirect back to themselves (loop). No HTTP-level resolution to the real article exists.
+- **What assumption broke:** A1 — "Google News redirects can be resolved"
+- **Is this local or systemic?** Systemic — Google designed the proxy URL as an opaque redirect, not a pass-through
+- **Next pivot:** Use WebSearch as the resolution mechanism for unresolvable Google News URLs
 
 ---
 
-## Phase 6 — Final Design
+## Phase 6 — Solution Design
 
-**Workflow:**
+### Revised workflow for "discuss story N"
+
 ```
-1. User: "tell me the news"
-   → Script: headlines only (title, source, time, link)
-   → Agent: presents cleanly, no summaries
-
-2. User: "tell me more about #2"
-   → Agent: WebSearch(query = headline)
-   → Agent: presents search results verbatim with attribution
-   → Agent: discusses with user (dialogue, not monologue)
+1. google-news --json → headlines[] with links
+2. user: "discuss story 1"
+3. webfetch -Url <link>
+   ├── Success → present cleaned article text
+   └── Failure (redirect loop / empty text)
+       → WebSearch(query = headline)
+       → present search results with attribution
 ```
 
-**Non-goal (explicit):** The agent does not generate summaries, paraphrases, or context for headlines. Phase 2 (on-demand search) is the only path to narrative content, and that content is presented verbatim with source attribution.
+### Script changes needed
 
-**Trust signals:**
-- Corroboration count (from Google News cluster)
-- Source names verbatim (no tiering — reputation is emergent)
+1. **Detect Google News proxy URLs** — if the URL contains `news.google.com/rss/articles/`, skip the fetch and return a special error code
+2. **Add WebSearch fallback** — when the script fails on a Google News URL, the SKILL.md should instruct the agent to fall back to WebSearch
+3. **Improve boilerplate stripping** — add detection of common article body patterns (`<article>`, `<div class="article-body">`, etc.) before falling back to generic tag stripping
+
+### Skill structure (after install)
+
+```
+.claude/skills/webfetch/
+├── SKILL.md
+├── TEST.md
+└── scripts/
+    └── fetch-url.ps1
+```
 
 ---
 
 ## Phase 8 — Post-Mortem
 
-**Problem:** Agent-generated news summaries are hallucination by proxy.
+**Problem:** Review and integrate the webfetch skill from Downloads.
 
-**Breakthrough:** Two-phase workflow with explicit non-goal. Headlines-only first, WebSearch on demand.
+**Breakthrough:** The script's core assumption (resolving Google News redirects) is wrong. Google News proxy URLs redirect in a loop — this was verified experimentally earlier this session.
 
-**Key insight from user:** Hard-coded source tiering is a belief, not a ground truth. Corroboration count is the first real trust signal — it's derived from data, not opinion.
+**Failed approaches:**
+- HTTP-level redirect following: Google News loop prevents reaching the publisher
+- `-UseBasicParsing`: Doesn't execute JS, so the rendered page approach won't work
 
-**Pragmatic compromise:** WebSearch is not "AI mode" (Perplexity/Gemini), but it's the only internet tool available. Must name this assumption explicitly.
+**Reusable heuristics:**
+- When a data source has opaque proxy URLs, the resolution mechanism is external to the data source
+- WebSearch is the correct fallback for unresolvable URLs — it indexes the same content that the proxy URL points to
+- The "discuss story N" flow should be two-path: webfetch → WebSearch fallback
+
+**Candidate skill edits:**
+1. Modify `fetch-url.ps1` to detect Google News proxy URLs and return a specific error code
+2. Update `SKILL.md` to document the two-path workflow
+3. Add WebSearch integration to the SKILL.md Steps section
