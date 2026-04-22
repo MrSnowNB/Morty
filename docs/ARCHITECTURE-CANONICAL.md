@@ -39,6 +39,18 @@ User types /task-begin <slug>
 `tool_call` entries are written by `post-tool.ps1` hook reading from the journal.
 **No other system may write task lifecycle entries.**
 
+## 2b. Autonomous vs Human-Assisted Paths
+
+Both paths converge on the same journal state and produce identical mine.ps1 results.
+
+| Path | How task_begin is written | Hook fallback | Outcome |
+|---|---|---|---|
+| **HUMAN SESSION** | User types `/task-begin` → agent sets env var → agent writes journal entry | Hook reads env var if set; falls back to journal | Identical |
+| **AUTONOMOUS SESSION** | Agent writes `task_begin` to journal directly (no env var set) | Hook reads journal tail, finds open `task_begin` | Identical |
+
+The journal is the shared medium. Whether the agent sets `$env:MORTY_TASK_ID` or writes `task_begin` directly to the journal, the hook's fallback mechanism produces the same `tool_call` entries with the correct `task_id`.
+
+
 ## 3. Morty's Autonomy Boundaries
 
 | What | Autonomy | Reason |
