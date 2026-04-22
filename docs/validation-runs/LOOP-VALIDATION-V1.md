@@ -49,7 +49,7 @@ proposed, and what governance constraints were respected.
 - Journal anchors: `logs/morty-journal.jsonl` (task_begin/task_end entries)
 - Mine output: `SCRATCH.md ## MINE block`
 - Codify proposal: `SCRATCH.md ## CODIFY block + DELTA entry`
-- Cases backfilled: `cases/` (+4 entries from 2026-04-20 session)
+- Cases backfilled: `.claude/cases/` (+4 entries from 2026-04-20 session; root `cases/` was retired in PR #24)
 
 ## What This Run Does NOT Do
 - Does not ratify the codify proposal into an actual skill

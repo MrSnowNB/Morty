@@ -10,11 +10,10 @@
 |---|---|---|
 | `.claude/hooks/` | Intercept agent tool calls at runtime; write tool_call entries to journal; manage task_id fallback. | Define task lifecycle (open/close tasks). |
 | `.claude/commands/` | Define user-facing slash commands that trigger agent behavior. | Execute anything directly — they are documentation only. |
-| `.claude/tools/` | Standalone agent-callable scripts (e.g. task-util.ps1). | Touch the agent's task_id context — subprocess env never reaches agent. |
+| `.claude/tools/` | Standalone agent-callable scripts. (Currently empty; former home of the retired `task_util.ps1`.) | Touch the agent's task_id context — subprocess env never reaches agent. |
 | `.claude/playbooks/` | Step-by-step recipes (sequences of skills) for recurring workflows. | Contain executable scripts — they are instructions, not code. |
 | `.claude/skills/` | Reusable atomic operations that inject context into the agent. | Manage task lifecycle boundaries. |
-| `.claude/cases/` | Recorded failures with diagnosis and resolution — for skill codification. | Duplicate cases in root `/cases/`. |
-| `cases/` (root) | Legacy — do not add new entries. Delete when all cases migrated. | Serve as the active cases directory. |
+| `.claude/cases/` | Recorded failures with diagnosis and resolution — for skill codification. The single active cases directory. | Be the only cases location; root `cases/` was retired in PR #24. |
 | `logs/` | Runtime journal (`.jsonl`), step counter, temp files. | Persist business logic — only data and process artifacts. |
 
 ## 2. The One Path: task_id Flow
@@ -107,13 +106,17 @@ The journal is the shared medium. Whether the agent sets `$env:MORTY_TASK_ID` or
 
 ## 6. Deprecation Decisions
 
-| System | Action | Reason |
-|---|---|---|
-| `cases/` (root) | Delete after migration to `.claude/cases/` | Duplicate directory, chain-miner scans `.claude/cases/` |
-| `task_util.ps1` | Deprecated — superseded by hook + slash commands | Subprocess env never reaches agent; hook fallback reads journal instead |
-| `chain-seed` skill | Merge into `chain-seed.md` playbook | `.claude/skills/chain-seed/PLAYBOOK.md` is a playbook, not a skill |
-| `task-begin` skill | Merge into `task-begin.md` command | `.claude/skills/task-begin/SKILL.md` duplicates the command |
-| `task-end` skill | Merge into `task-end.md` command | `.claude/skills/task-end/SKILL.md` duplicates the command |
+Historical table — all items below are **completed**. Do not treat unchecked boxes as pending; see the `Done in` column for the commit that landed each change.
+
+| System | Action | Reason | Done in |
+|---|---|---|---|
+| `cases/` (root) | ✓ Migrated into `.claude/cases/` | Duplicate directory, chain-miner scans `.claude/cases/` | PR #24 |
+| `task_util.ps1` | ✓ Deleted — superseded by hook + slash commands | Subprocess env never reaches agent; hook fallback reads journal instead | pre-`2d9be9a` |
+| `chain-seed` skill | ✓ Merged into `chain-seed.md` playbook | `.claude/skills/chain-seed/PLAYBOOK.md` was a playbook, not a skill | `9b6c3b7` |
+| `task-begin` skill | ✓ Merged into `task-begin.md` command | `.claude/skills/task-begin/SKILL.md` duplicated the command | pre-`2d9be9a` |
+| `task-end` skill | ✓ Merged into `task-end.md` command | `.claude/skills/task-end/SKILL.md` duplicated the command | pre-`2d9be9a` |
+| `delta-log/delta-log.md` | ✓ Merged into `delta-log/SKILL.md` (v1.2) | Two top-level docs in one skill directory violated O-4 | PR #24 |
+| `zombie-restore/zombie-restore.md` | ✓ Merged into `zombie-restore/SKILL.md` (v1.2) | Two top-level docs in one skill directory violated O-4 | PR #24 |
 
 ## 7. What This Fixes
 
