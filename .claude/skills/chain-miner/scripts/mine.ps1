@@ -65,6 +65,10 @@ foreach ($e in $entries) {
 
   switch ($e.kind) {
     "tool_call" {
+      # Skip boundary-management tools — they pollute chain signatures
+      $toolName = [string]$e.tool
+      if ($toolName -in @('task-util', 'Skill', 'TaskCreate', 'TaskUpdate')) { continue }
+
       $shape = Get-ArgShape ([string]$e.summary)
       $tasks[$e.task_id].steps += [ordered]@{
         tool      = [string]$e.tool
