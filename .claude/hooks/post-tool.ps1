@@ -22,29 +22,37 @@ $taskId = $env:MORTY_TASK_ID
 # The hook runs as a separate pwsh subprocess that doesn't inherit the agent's
 # process env vars, so /task-begin's $env:MORTY_TASK_ID is invisible here.
 # The journal is the shared medium — tail 500 is fast enough.
-# CRITICAL: skip task_begins that have a matching task_end after them (closed tasks).
+# CRITICAL: walk entries backward and pick the most recent task_begin whose
+# task_id has no matching task_end in the tail. A forward walk would pick the
+# OLDEST open task and misroute tool_calls when two tasks are open at once.
+#
+# Why not `(Where-Object {...}).Reverse()`?  PowerShell's .Reverse() is an
+# in-place [Array]::Reverse mutator that returns $null, so the subsequent
+# foreach would iterate over nothing and the fallback would silently no-op.
+# See VALIDATION-GATE-001-REPORT.md Bug 1 — the previous "fix" did not
+# actually reverse the collection.
 if (-not $taskId) {
   if (Test-Path $journal) {
-    # Read all entries and find task_begin entries
-    $allEntries = Get-Content $journal -Tail 500 | ConvertFrom-Json
-    # Walk backward through task_begins to find the most recent open task
-    $taskBegins = ($allEntries | Where-Object { $_ -and $_.kind -eq "task_begin" }).Reverse()
-    foreach ($begin in $taskBegins) {
-      $beginTaskId = $begin.task_id
-      # Check if there's a task_end for this task_id AFTER this task_begin
-      $hasEnd = $false
-      foreach ($e in $allEntries) {
-        if ($e.kind -eq "task_end" -and $e.task_id -eq $beginTaskId) {
-          # Found a task_end for this task — the task is closed
-          $hasEnd = $true
-          break
-        }
+    $allEntries = @(Get-Content $journal -Tail 500 | ForEach-Object {
+      try { $_ | ConvertFrom-Json } catch { $null }
+    } | Where-Object { $_ -ne $null })
+
+    # Pre-index closed task_ids for O(n) lookup instead of O(n*m) nested scan.
+    $closedTaskIds = @{}
+    foreach ($e in $allEntries) {
+      if ($e.kind -eq "task_end" -and $e.task_id) {
+        $closedTaskIds[$e.task_id] = $true
       }
-      if (-not $hasEnd) {
-        # This task_begin has no matching task_end — it's still open
-        $taskId = $beginTaskId
-        break
-      }
+    }
+
+    # Walk backward — the most recent open task_begin wins.
+    for ($i = $allEntries.Count - 1; $i -ge 0; $i--) {
+      $e = $allEntries[$i]
+      if ($e.kind -ne "task_begin") { continue }
+      if (-not $e.task_id) { continue }
+      if ($closedTaskIds.ContainsKey($e.task_id)) { continue }
+      $taskId = $e.task_id
+      break
     }
   }
 }
