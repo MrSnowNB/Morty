@@ -1,140 +1,77 @@
-# FP Solve: webfetch skill review — 2026-04-22
+# FP Solve: gated-validation-for-recursive-harness-improvement — 2026-04-22
 
 ## Problem Statement
 
-User downloaded a `webfetch` skill to `C:\Users\AMD\Downloads\webfetch-skill/` and
-wants me to examine it to help with the web fetch skill. The skill is designed to
-close the "discuss story N" dead-end in the google-news workflow: given a Google News
-proxy URL, resolve the redirect and return clean article text.
+The AI-FIRST-IMPROVEMENT-PLAN.md identifies three phases of work (task lifecycle fix, validation gates, AI-first enhancements) but lacks a **gated validation protocol** that the agent can execute step-by-step to verify each improvement before proceeding. Without gates, improvements silently break the self-improvement loop (chain-seed → chain-miner → codify → skill merge). The goal is to modify the plan with concrete, executable validation gates that the agent can walk through systematically.
 
----
+## Known Context
 
-## Phase 1 — Assumption Challenge
+- **Relevant user constraints:** No direct git commit; use /commit or ask Mark. Windows 11 + pwsh only. Compaction does not work against llama.cpp.
+- **Relevant project facts:** chain-seed.md v3.0 already implements direct journal writes. task_util.ps1 already removed. mine.ps1 exists and works. Journal has 55 entries, zero with task_id (chain-seed was never run in the last two sessions).
+- **Prior attempts or logs:** chain-seed went v1.0 → v1.1 → v2.0 → v3.0, each fixing a design flaw. Plan references /task-begin as agent-invocable (it is not per MORTY.md). Plan references task_util.ps1 (already deleted).
 
-| # | Assumption | Type | Challenge | Verdict |
-|---|-----------|------|-----------|---------|
-| A1 | `Invoke-WebRequest` with `-MaximumRedirection` resolves Google News proxy URLs to real articles | belief | Google News redirects are a loop — verified experimentally earlier this session. The script may never reach the real article. | **revise** — must verify against live data |
-| A2 | `-UseBasicParsing` extracts `final_url` correctly | belief | `-UseBasicParsing` doesn't execute JS. For Google News, the redirect metadata may be in JS, not HTTP headers. | **revise** — must test |
-| A3 | Boilerplate stripping via regex tag removal works for news articles | belief | News articles use varied HTML structures. Regex stripping of `<script>`, `<style>`, etc. is a first-order approximation. May leave navigation, ads, or miss the article body. | **revise** — must test against real articles |
-| A4 | SSRF guard covers all dangerous addresses | convention | Covers localhost, RFC1918, link-local, GCE/AWS metadata. Does NOT cover IPv6 loopback `::1` (wait — it does via the blockedHosts array). Does NOT cover DNS rebinding (IP resolves to private after DNS lookup). | **revise** — DNS rebinding is a gap |
-| A5 | The skill is ready to install and use | belief | Needs testing (TEST.md lists 5 cases). Needs to be in the right project directory. | **keep** — pending test results |
-| A6 | Google News redirects CAN be resolved | revise | Earlier this session, `curl -L` on a Google News proxy URL redirected back to itself (loop). If `-MaximumRedirection` follows HTTP redirects, it will hit the 5-hop limit and fail. | **revise** — must verify |
+## Assumption Table
 
----
+| ID | Assumption | Type | Challenge | Five Whys root | Verdict | Notes |
+|---|---|---|---|---|---|---|
+| A1 | The agent can execute validation gates autonomously | belief | Gates must be pwsh one-liners, not slash commands. /task-begin is user-facing only per MORTY.md. | Why? Because MORTY.md says slash commands are user-facing only. Why does that matter? Agent needs journal writes, not commands. Why? Env var propagation from subprocess to agent is impossible. | **revise** — gates use direct Add-Content journal writes, not slash commands |
+| A2 | chain-seed v3.0 is correct and just needs to be run | belief | Verified by running it and checking mine.ps1 output. Each vN eliminated a prior flaw. | Why trust v3.0? Eliminated subprocess env (v2.0), eliminated Edit drift (v1.1), eliminated RSS-only assumption (v1.0). | **keep** — but gate must RUN it, not assume |
+| A3 | mine.ps1 correctly groups and hashes tool chains | fact | Source audit confirms: groups by task_id, normalizes args, hashes sequences, emits candidates. | Can we verify? Run it with known task-bounded entries and check output. | **keep** |
+| A4 | Plan's Phase 3 (auto context thresholds) is actionable | belief | Compaction does NOT work against llama.cpp (runtime profile). Automatic /compact requires boot hook changes. | Why would it work? It doesn't — manual /compact discipline is the only overflow protection. | **discard** — not actionable |
+| A5 | Validation gates should live in the plan document, not separate scripts | convention | Gating belongs where the workflow lives. Plan = workflow spec. | Why in the plan? So the agent reads it as part of the plan, not as external scripts that may be ignored. | **keep** |
+| A6 | Phase 1 of the plan is already done | fact | chain-seed.md v3.0 uses direct journal writes. task_util.ps1 absent from repo. | How do we know? Glob found no task_util.ps1. chain-seed.md v3.0 changelog confirms. | **keep** |
 
-## Phase 2 — Ground Truths
+## Ground Truths
 
-- **GT-1:** Google News proxy URLs (`news.google.com/rss/articles/CBMi…`) redirect back to Google News with added parameters — this is a redirect loop, not a chain to the publisher.
-- **GT-2:** `Invoke-WebRequest` with `-MaximumRedirection 5` follows HTTP 302 redirects, but cannot resolve the Google News loop.
-- **GT-3:** Google News proxy redirects do NOT serve article content — they redirect to a JS-rendered page.
-- **GT-4:** A real news article URL (e.g., `cbsnews.com/live-updates/...`) can be fetched and stripped via regex.
-- **GT-5:** The webfetch skill's design assumes Google News redirects CAN be resolved — this contradicts GT-1 and GT-3.
-- **GT-6:** `Invoke-WebRequest` with `-UseBasicParsing` does not execute JavaScript.
+- GT-1: Agent cannot set env vars that affect itself via subprocess — direct journal writes are the only mechanism.
+- GT-2: chain-miner requires task_begin + task_end boundary entries in the journal before it can group tool calls into chains.
+- GT-3: The self-improvement loop is chain-seed → chain-miner → /codify → Mark approves → skill merge. If any link breaks, the loop stops.
+- GT-4: Validation gates must be executable by the agent autonomously — no interactive commands, no /task-begin slash invocations.
+- GT-5: Every gate has a pass/fail criterion, a fail action, and a rollback path.
+- GT-6: mine.ps1 source code is correct — no bugs found in grouping, normalization, or hashing logic.
 
----
+## Active Sub-Problems
 
-## Phase 3 — Sub-problems
+- [ ] SP-1: What should we validate FIRST — chain-seed execution or journal structure?
+- [ ] SP-2: What does a validation gate look like that the agent can actually execute?
+- [ ] SP-3: How do we make gates sequential so failure at gate N stops progression?
+- [ ] SP-4: What changes to AI-FIRST-IMPROVEMENT-PLAN.md are needed vs. what is already done?
 
-| ID | Sub-problem | Success | Failure | Approach |
-|----|------------|---------|---------|----------|
-| SP-1 | Verify Google News redirect behavior with the script | Script resolves to real publisher URL | Script hits redirect loop | Test with a real Google News URL |
-| SP-2 | Verify boilerplate stripping works | Clean text > 200 chars from real article | Text is mostly navigation/boilerplate | Test with example.com or a real news URL |
-| SP-3 | Verify SSRF guard | Denylist blocks dangerous URLs | SSRF possible | Test with localhost URL |
-| SP-4 | Install the skill | Skill is in project .claude/skills/webfetch/ | Files not in right place | Copy from Downloads to project |
-| SP-5 | Design fallback for unresolvable redirects | WebSearch finds the real URL | Script fails, no recovery | Integrate WebSearch as fallback |
+## Breadth-First Challenge Results
 
----
+- A1 (agent autonomy): **Revised** — gates must use direct journal writes, not slash commands. Most important correction.
+- A4 (Phase 3): **Discarded** — not actionable without boot hook rewrite. Remove or defer.
+- A6 (Phase 1 done): **Confirmed**. Plan's Phase 1 should be marked COMPLETE.
+- A2, A3, A5: **Kept**.
 
-## Phase 4 — Solved
+## Recursion Trace
 
-### SP-1: Google News redirect behavior
+- Depth 0: What to validate first?
+  - Depth 1: Chain-seed execution vs. journal structure — which is more foundational?
+    - Depth 2: If journal has no task-bounded entries, mine.ps1 returns 0. If chain-seed runs but mine.ps1 is broken, still 0. Which failure exists?
+      - mine.ps1 source audit shows correctness. Journal has 0 task-bounded entries — this is the bottleneck.
+      - **Conclusion:** Validate chain-seed execution first (SP-1 priority).
 
-**Critical finding:** The webfetch script's core assumption (that it can resolve Google News proxy URLs to real articles) is **wrong**. Google News proxy URLs redirect in a loop. The script will fail on the exact use case it's designed for.
+## Error Log / Dead Ends
 
-**Fix needed:** The script should detect Google News proxy URLs and either:
-- Return an error indicating the URL cannot be resolved
-- Trigger a WebSearch fallback to find the real article URL
+- Dead End 1: Plan references /task-begin as agent-invocable — wrong per MORTY.md. Must be corrected.
+- Dead End 2: Plan's Phase 3 auto-compact assumes compaction works — it does not against llama.cpp. Discard.
+- Dead End 3: Plan proposes standalone PowerShell validation scripts — agent won't execute reliably. Gates must be inline.
 
-### SP-2: Boilerplate stripping
+## Bottom-Up Reconstruction
 
-The regex-based approach is a first-order approximation. It strips known noise tags (`<script>`, `<style>`, `<nav>`, etc.) but does NOT extract the article body from the page. For well-structured articles (AP, Reuters, etc.) it may work. For others, it may return navigation noise or miss the article entirely.
+From GT-1 + GT-4: Gates use direct journal writes, not slash commands.
+From GT-2 + GT-3: First gate = "run chain-seed and verify mine.ps1 returns candidates >= 1."
+From SP-1 conclusion: Priority order is chain-seed → journal health → task propagation.
+From GT-5: Each gate needs pass/fail, fail action, rollback.
 
-### SP-3: SSRF guard
+## Open Questions
 
-Covers the main danger zones. DNS rebinding is a theoretical gap but low risk for this use case.
+- OQ-1: Should the plan modification be a complete rewrite or incremental edits?
+- OQ-2: Does the user want Phase 3 discarded entirely or deferred?
 
-### SP-4: Installation
+## Skill Synthesis Candidates
 
-The skill lives in the Downloads folder. Needs to be copied to the project's `.claude/skills/webfetch/`.
-
-### SP-5: Fallback design
-
-Since Google News redirects cannot be resolved programmatically, the "discuss story N" flow needs a two-path approach:
-1. Try webfetch — if it fails (redirect loop), fall back to WebSearch with the headline as query
-2. Present WebSearch results as the discussion content
-
----
-
-## Phase 5 — Error Analysis
-
-### Dead end: Google News redirect resolution
-- **Sub-problem:** SP-1
-- **What was attempted:** Use `Invoke-WebRequest` with `-MaximumRedirection` to follow Google News redirects to publisher URLs
-- **Why it failed:** Google News proxy URLs redirect back to themselves (loop). No HTTP-level resolution to the real article exists.
-- **What assumption broke:** A1 — "Google News redirects can be resolved"
-- **Is this local or systemic?** Systemic — Google designed the proxy URL as an opaque redirect, not a pass-through
-- **Next pivot:** Use WebSearch as the resolution mechanism for unresolvable Google News URLs
-
----
-
-## Phase 6 — Solution Design
-
-### Revised workflow for "discuss story N"
-
-```
-1. google-news --json → headlines[] with links
-2. user: "discuss story 1"
-3. webfetch -Url <link>
-   ├── Success → present cleaned article text
-   └── Failure (redirect loop / empty text)
-       → WebSearch(query = headline)
-       → present search results with attribution
-```
-
-### Script changes needed
-
-1. **Detect Google News proxy URLs** — if the URL contains `news.google.com/rss/articles/`, skip the fetch and return a special error code
-2. **Add WebSearch fallback** — when the script fails on a Google News URL, the SKILL.md should instruct the agent to fall back to WebSearch
-3. **Improve boilerplate stripping** — add detection of common article body patterns (`<article>`, `<div class="article-body">`, etc.) before falling back to generic tag stripping
-
-### Skill structure (after install)
-
-```
-.claude/skills/webfetch/
-├── SKILL.md
-├── TEST.md
-└── scripts/
-    └── fetch-url.ps1
-```
-
----
-
-## Phase 8 — Post-Mortem
-
-**Problem:** Review and integrate the webfetch skill from Downloads.
-
-**Breakthrough:** The script's core assumption (resolving Google News redirects) is wrong. Google News proxy URLs redirect in a loop — this was verified experimentally earlier this session.
-
-**Failed approaches:**
-- HTTP-level redirect following: Google News loop prevents reaching the publisher
-- `-UseBasicParsing`: Doesn't execute JS, so the rendered page approach won't work
-
-**Reusable heuristics:**
-- When a data source has opaque proxy URLs, the resolution mechanism is external to the data source
-- WebSearch is the correct fallback for unresolvable URLs — it indexes the same content that the proxy URL points to
-- The "discuss story N" flow should be two-path: webfetch → WebSearch fallback
-
-**Candidate skill edits:**
-1. Modify `fetch-url.ps1` to detect Google News proxy URLs and return a specific error code
-2. Update `SKILL.md` to document the two-path workflow
-3. Add WebSearch integration to the SKILL.md Steps section
+- Pattern: Gated validation as inline plan steps (not separate scripts)
+- Reusable invariant: Every improvement plan must include executable gates before implementation begins
+- Candidate: Add "gated validation" section to chain-seed.md playbook
