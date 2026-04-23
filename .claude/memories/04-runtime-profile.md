@@ -1,7 +1,7 @@
 # Runtime Profile
 
 ## Model
-- Name: set by `MORTY_MODEL` env var at launch (e.g. `Qwen3-Coder-Next-GGUF`)
+- Name: set by `MORTY_MODEL` env var at launch (e.g. `user.Qwen3.6-30B-A3B-GGUF`)
 - Endpoint: `http://127.0.0.1:8000` (lemonade server)
 - Context window: **128 000 tokens** (set in lemonade Options menu 2026-04-20)
   - Previous value was 64 000 — sessions were hitting hard 400 errors
