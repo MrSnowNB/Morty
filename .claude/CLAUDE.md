@@ -24,7 +24,7 @@ scope: user-global
 - **Host:** Windows 11, PowerShell 7.
 - **Agent binary:** `%USERPROFILE%\.local\bin\claude.exe` (Claude Code native).
 - **Model endpoint:** `ANTHROPIC_BASE_URL` env var (set by `morty.ps1`).
-- **Bound model:** `MORTY_MODEL` env var, default `Qwen3-Coder-Next-GGUF`.
+- **Bound model:** `MORTY_MODEL` env var, default `user.Qwen3.6-30B-A3B-GGUF`.
 - **Project root:** `MORTY_PROJECT_ROOT` env var, set to `$PWD` at launch.
 - **Subagents:** disabled. `Task` tool is denied in `settings.json`.
 

@@ -5,11 +5,13 @@
 # Usage (one-off):  . .\launchers\morty-launcher.ps1 ; morty
 # Usage (installed): morty   (from any directory after profile install)
 
+$script:MortyLaunchersDir = $PSScriptRoot
+
 function morty {
   param([Parameter(ValueFromRemainingArguments)]$passThru)
 
   # Resolve this script's directory so the endpoint probe is always found
-  $launchersDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+  $launchersDir = $script:MortyLaunchersDir
   if (-not $launchersDir) {
     $launchersDir = "$env:USERPROFILE\.local\bin"
   }
@@ -28,8 +30,8 @@ function morty {
 
   $env:ANTHROPIC_BASE_URL  = $endpoint
   $env:ANTHROPIC_API_KEY   = "lemonade-local"
-  $env:ANTHROPIC_MODEL     = "Qwen3-Coder-Next-GGUF"
-  $env:MORTY_MODEL         = "Qwen3-Coder-Next-GGUF"
+  $env:ANTHROPIC_MODEL     = "user.Qwen3.6-30B-A3B-GGUF"
+  $env:MORTY_MODEL         = "user.Qwen3.6-30B-A3B-GGUF"
   $env:MORTY_PROJECT_ROOT  = (Get-Location).Path
 
   Write-Host "[morty] endpoint : $endpoint"                   -ForegroundColor Cyan

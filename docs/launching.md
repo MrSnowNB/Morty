@@ -1,6 +1,6 @@
 # Launching Morty
 
-Morty runs on top of Claude Code, pointed at a local [Lemonade Server](https://github.com/lemonade-hq/lemonade) instance serving `Qwen3-Coder-Next-GGUF`.
+Morty runs on top of Claude Code, pointed at a local [Lemonade Server](https://github.com/lemonade-hq/lemonade) instance serving `user.Qwen3.6-30B-A3B-GGUF`.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ powershell -ExecutionPolicy Bypass -File install\add-morty-profile.ps1
 
 Open the Lemonade GUI and confirm:
 - **STATUS: CONNECTED** in the bottom bar
-- **Qwen3-Coder-Next-GGUF** appears under Active Models
+- **user.Qwen3.6-30B-A3B-GGUF** appears under Active Models
 
 ### 3. Launch Morty
 
@@ -28,7 +28,7 @@ The launcher will print three confirmation lines:
 
 ```
 [morty] endpoint : http://127.0.0.1:8000
-[morty] model    : Qwen3-Coder-Next-GGUF
+[morty] model    : user.Qwen3.6-30B-A3B-GGUF
 [morty] project  : C:\work\harness-sandbox
 ```
 
@@ -39,7 +39,7 @@ Then Claude Code opens. First prompt: `/introspect`
 ## How Endpoint Detection Works
 
 `launchers/morty-endpoint.ps1` probes ports `8000, 8001, 8004, 8080` in order.
-It hits `/api/v1/models` on each and checks the response for `Qwen3-Coder-Next`.
+It hits `/api/v1/models` on each and checks the response for `Qwen3.6-30B-A3B`.
 The first port that matches is returned. If none match, the launcher aborts with a clear error before touching Claude.
 
 Lemonade's **router** is stable on port 8000. The internal `llama-server` subprocess
@@ -53,7 +53,7 @@ uses a different ephemeral port — that port is internal only and should be ign
 |---|---|---|
 | `Lemonade not reachable` | Server not running | Open Lemonade GUI, wait for CONNECTED |
 | `Connection failed: Failed to read connection` | Launched before server fully up | Wait ~5s and retry |
-| `No endpoint found on ports: 8000, 8001...` | Model not loaded | In Lemonade GUI, load Qwen3-Coder-Next-GGUF |
+| `No endpoint found on ports: 8000, 8001...` | Model not loaded | In Lemonade GUI, load user.Qwen3.6-30B-A3B-GGUF |
 | Hook errors (`%USERPROFILE%...`) | Old path syntax in `settings.json` | Run `install\fix-settings-paths.ps1` (see below) |
 | `morty: command not found` | Profile not reloaded | Run `. $PROFILE` |
 
@@ -77,6 +77,6 @@ Set-Content $PROFILE $p -Encoding utf8
 |---|---|---|
 | `ANTHROPIC_BASE_URL` | Detected Lemonade URL | Directs Claude Code to local LLM |
 | `ANTHROPIC_API_KEY` | `lemonade-local` | Satisfies Claude Code's auth check |
-| `ANTHROPIC_MODEL` | `Qwen3-Coder-Next-GGUF` | Model selection |
-| `MORTY_MODEL` | `Qwen3-Coder-Next-GGUF` | Available to hooks and skills |
+| `ANTHROPIC_MODEL` | `user.Qwen3.6-30B-A3B-GGUF` | Model selection |
+| `MORTY_MODEL` | `user.Qwen3.6-30B-A3B-GGUF` | Available to hooks and skills |
 | `MORTY_PROJECT_ROOT` | Current directory at launch | Used by journal-anchor and skills |
