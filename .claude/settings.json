@@ -73,6 +73,17 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File ${CLAUDE_PROJECT_DIR}/.claude/hooks/context-monitor.ps1"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
