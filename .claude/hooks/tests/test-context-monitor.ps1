@@ -16,7 +16,7 @@ function Assert-Equal {
 }
 
 Write-Host "=== 1. Low context (<=20% remaining), non-whitelisted tool ===" -ForegroundColor Cyan
-$json1 = '{"tool_name": "Read", "args": {}, "context_window": {"total": 200000, "used": 180000, "remaining": 20000, "remaining_pct": 10.0}}'
+$json1 = '{"tool_name": "Glob", "args": {}, "context_window": {"total": 200000, "used": 180000, "remaining": 20000, "remaining_pct": 10.0}}'
 $pinfo = New-Object System.Diagnostics.ProcessStartInfo
 $pinfo.FileName = "pwsh"
 $pinfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File .claude/hooks/context-monitor.ps1"
@@ -45,7 +45,7 @@ Assert-Equal 0 $p.ExitCode "returns 0 when context is low but tool is whiteliste
 
 Write-Host ""
 Write-Host "=== 3. High context (>20% remaining), non-whitelisted tool ===" -ForegroundColor Cyan
-$json3 = '{"tool_name": "Read", "args": {}, "context_window": {"total": 200000, "used": 100000, "remaining": 100000, "remaining_pct": 50.0}}'
+$json3 = '{"tool_name": "Glob", "args": {}, "context_window": {"total": 200000, "used": 100000, "remaining": 100000, "remaining_pct": 50.0}}'
 $pinfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File .claude/hooks/context-monitor.ps1"
 $p = [System.Diagnostics.Process]::Start($pinfo)
 $p.StandardInput.WriteLine($json3)
@@ -55,7 +55,7 @@ Assert-Equal 0 $p.ExitCode "returns 0 when context is high"
 
 Write-Host ""
 Write-Host "=== 4. Fallback heuristic: large journal ===" -ForegroundColor Cyan
-$json4 = '{"tool_name": "Read", "args": {}}'
+$json4 = '{"tool_name": "Glob", "args": {}}'
 $dummyLog = "logs/morty-journal.jsonl"
 if (-not (Test-Path "logs")) { New-Item -ItemType Directory logs | Out-Null }
 $lines = [System.Collections.Generic.List[string]]::new()

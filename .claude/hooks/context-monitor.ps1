@@ -10,7 +10,7 @@ try { $inp = $raw | ConvertFrom-Json } catch { [Environment]::Exit(0) }
 
 # Allow certain harmless tools to proceed unconditionally, preventing deadlocks when agent tries to checkpoint.
 # We whitelist tools necessary for creating a checkpoint and viewing files.
-$whitelist = @("Bash", "Write", "Edit")
+$whitelist = @("Bash", "Write", "Edit", "Read", "Replace")
 if ($whitelist -contains $inp.tool_name) {
     [Environment]::Exit(0)
 }
