@@ -76,6 +76,33 @@ Assert-Equal $true $hasMessage2 "prints fallback error message"
 Remove-Item $dummyLog -Force
 
 Write-Host ""
+Write-Host "=== 5. MORTY_PROJECT_ROOT = '.' resolves journal path correctly ===" -ForegroundColor Cyan
+$json5 = '{"tool_name": "Read", "args": {}}'
+$dummyLog2 = "logs/morty-journal.jsonl"
+# Ensure the dummy journal exists with >400 lines
+$lines2 = [System.Collections.Generic.List[string]]::new()
+for ($i=0; $i -lt 500; $i++) { $lines2.Add("{}") }
+[System.IO.File]::WriteAllLines($dummyLog2, $lines2)
+
+$pinfo5 = New-Object System.Diagnostics.ProcessStartInfo
+$pinfo5.FileName = "pwsh"
+$pinfo5.Arguments = "-NoProfile -ExecutionPolicy Bypass -File .claude/hooks/context-monitor.ps1"
+$pinfo5.RedirectStandardInput = $true
+$pinfo5.RedirectStandardError = $true
+$pinfo5.UseShellExecute = $false
+$pinfo5.EnvironmentVariables["MORTY_PROJECT_ROOT"] = "."
+$p5 = [System.Diagnostics.Process]::Start($pinfo5)
+$p5.StandardInput.WriteLine($json5)
+$p5.StandardInput.Close()
+$p5.WaitForExit()
+Assert-Equal 1 $p5.ExitCode "returns 1 when MORTY_PROJECT_ROOT='.' resolves journal with >400 lines"
+$errOut3 = $p5.StandardError.ReadToEnd()
+$hasMessage3 = $errOut3 -match "CONTEXT LOW \(Fallback check\)"
+Assert-Equal $true $hasMessage3 "prints fallback error message with resolved '.' path"
+
+Remove-Item $dummyLog2 -Force
+
+Write-Host ""
 if ($failures.Count -eq 0) {
   Write-Host "All tests passed." -ForegroundColor Green
   [Environment]::Exit(0)

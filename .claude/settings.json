@@ -98,6 +98,6 @@
   "env": {
     "MORTY_DENYLIST":     "${CLAUDE_PROJECT_DIR}/.claude/skills/safe-bash/references/denylist.yaml",
     "MORTY_MODEL":        "user.Qwen3.6-30B-A3B-GGUF",
-    "MORTY_PROJECT_ROOT": "${CLAUDE_PROJECT_DIR}"
+    "MORTY_PROJECT_ROOT": "."
   }
 }
