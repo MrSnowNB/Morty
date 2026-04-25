@@ -30,7 +30,7 @@ if ($inp.context_window -and $inp.context_window.remaining_pct -ne $null) {
     # Fallback heuristic: check line count of the morty journal as a proxy for context
     # If the journal exceeds 400 lines in a session, we warn the user.
     $projectRoot = if ($env:MORTY_PROJECT_ROOT) { $env:MORTY_PROJECT_ROOT } else { $env:CLAUDE_PROJECT_DIR }
-    if (-not $projectRoot) { $projectRoot = (Get-Location).Path }
+    if (-not $projectRoot -or $projectRoot -eq '.') { $projectRoot = (Get-Location).Path }
     $journal = Join-Path $projectRoot "logs/morty-journal.jsonl"
 
     if (Test-Path $journal) {

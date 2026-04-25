@@ -33,9 +33,10 @@ try {
   $entries = $jsonArrayStr | ConvertFrom-Json
 } catch {
   $entries = @(foreach ($line in $lines) {
-  try { $line | ConvertFrom-Json } catch { $null }
-  }) | Where-Object { $_ -ne $null }
+    try { $line | ConvertFrom-Json } catch { $null }
+  })
 }
+$entries = $entries | Where-Object { $_ -ne $null }
 
 # --- Normalize an argument string into an arg_shape --------------------------
 function Get-ArgShape {
