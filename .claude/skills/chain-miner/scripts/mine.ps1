@@ -28,9 +28,14 @@ if (-not (Test-Path $JournalPath)) {
 $lines = Get-Content -Path $JournalPath -Tail $Tail -Encoding utf8
 
 # --- Parse entries -----------------------------------------------------------
-$entries = @(foreach ($line in $lines) {
+try {
+  $jsonArrayStr = "[" + ($lines -join ",") + "]"
+  $entries = $jsonArrayStr | ConvertFrom-Json
+} catch {
+  $entries = @(foreach ($line in $lines) {
   try { $line | ConvertFrom-Json } catch { $null }
-}) | Where-Object { $_ -ne $null }
+  }) | Where-Object { $_ -ne $null }
+}
 
 # --- Normalize an argument string into an arg_shape --------------------------
 function Get-ArgShape {
@@ -112,17 +117,17 @@ foreach ($e in $entries) {
 
   if (-not $tasks.ContainsKey($tid)) {
     $tasks[$tid] = [ordered]@{
-      steps   = @()
+      steps   = [System.Collections.Generic.List[object]]::new()
       outcome = $null
     }
   }
 
   $shape = Get-ArgShape ([string]$e.summary)
-  $tasks[$tid].steps += [ordered]@{
+  $tasks[$tid].steps.Add([ordered]@{
     tool      = [string]$e.tool
     arg_shape = $shape
     exit_status = if ($e.exit_status) { [string]$e.exit_status } else { "ok" }
-  }
+  })
 
   # Also inherit outcome from the boundary
   if ($boundaryMap.ContainsKey($tid) -and $boundaryMap[$tid].outcome) {
@@ -157,7 +162,7 @@ foreach ($tid in $tasks.Keys) {
       fail_count             = 0
       partial_count          = 0
       total_step_count       = 0
-      sample_task_ids        = @()
+      sample_task_ids        = [System.Collections.Generic.List[string]]::new()
       representative_summary = ($t.steps | ForEach-Object { $_.tool }) -join " → "
     }
   }
@@ -169,7 +174,7 @@ foreach ($tid in $tasks.Keys) {
   elseif ($t.outcome -eq "partial") { $agg[$sig].partial_count++ }
 
   if ($agg[$sig].sample_task_ids.Count -lt 5) {
-    $agg[$sig].sample_task_ids += $tid
+    $agg[$sig].sample_task_ids.Add($tid)
   }
 }
 

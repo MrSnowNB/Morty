@@ -54,6 +54,28 @@ $p.WaitForExit()
 Assert-Equal 0 $p.ExitCode "returns 0 when context is high"
 
 Write-Host ""
+Write-Host "=== 4. Fallback heuristic: large journal ===" -ForegroundColor Cyan
+$json4 = '{"tool_name": "Read", "args": {}}'
+$dummyLog = "logs/morty-journal.jsonl"
+if (-not (Test-Path "logs")) { New-Item -ItemType Directory logs | Out-Null }
+$lines = [System.Collections.Generic.List[string]]::new()
+for ($i=0; $i -lt 500; $i++) { $lines.Add("{}") }
+[System.IO.File]::WriteAllLines($dummyLog, $lines)
+
+$pinfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File .claude/hooks/context-monitor.ps1"
+$pinfo.EnvironmentVariables["MORTY_PROJECT_ROOT"] = (Get-Location).Path
+$p = [System.Diagnostics.Process]::Start($pinfo)
+$p.StandardInput.WriteLine($json4)
+$p.StandardInput.Close()
+$p.WaitForExit()
+Assert-Equal 1 $p.ExitCode "returns 1 when fallback line-count triggers"
+$errOut2 = $p.StandardError.ReadToEnd()
+$hasMessage2 = $errOut2 -match "CONTEXT LOW \(Fallback check\)"
+Assert-Equal $true $hasMessage2 "prints fallback error message"
+
+Remove-Item $dummyLog -Force
+
+Write-Host ""
 if ($failures.Count -eq 0) {
   Write-Host "All tests passed." -ForegroundColor Green
   [Environment]::Exit(0)

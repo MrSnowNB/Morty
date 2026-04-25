@@ -26,5 +26,25 @@ if ($inp.context_window -and $inp.context_window.remaining_pct -ne $null) {
         [Console]::Error.WriteLine("ACTION REQUIRED: Run /checkpoint now, then /clear before the next tool call to rotate context.")
         [Environment]::Exit(1)
     }
+} else {
+    # Fallback heuristic: check line count of the morty journal as a proxy for context
+    # If the journal exceeds 400 lines in a session, we warn the user.
+    $projectRoot = if ($env:MORTY_PROJECT_ROOT) { $env:MORTY_PROJECT_ROOT } else { $env:CLAUDE_PROJECT_DIR }
+    if (-not $projectRoot) { $projectRoot = (Get-Location).Path }
+    $journal = Join-Path $projectRoot "logs/morty-journal.jsonl"
+
+    if (Test-Path $journal) {
+        # Fast line count reading
+        $lineCount = 0
+        $reader = [System.IO.File]::OpenText($journal)
+        while ($reader.ReadLine() -ne $null) { $lineCount++ }
+        $reader.Close()
+
+        if ($lineCount -ge 400) {
+            [Console]::Error.WriteLine("CONTEXT LOW (Fallback check): Journal exceeds 400 lines.")
+            [Console]::Error.WriteLine("ACTION REQUIRED: Run /checkpoint now, then /clear before the next tool call to rotate context.")
+            [Environment]::Exit(1)
+        }
+    }
 }
 [Environment]::Exit(0)
