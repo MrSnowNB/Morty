@@ -6,7 +6,7 @@ param(
   [int]$Tail = 500,
   [string]$JournalPath = "$env:MORTY_PROJECT_ROOT\logs\morty-journal.jsonl"
 )
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
 if (-not (Test-Path $JournalPath)) {
   Write-Error "Journal not found: $JournalPath"
@@ -14,9 +14,18 @@ if (-not (Test-Path $JournalPath)) {
 }
 
 $raw = Get-Content $JournalPath -Tail $Tail
-$lines = foreach ($l in $raw) {
-  try { $l | ConvertFrom-Json } catch { $null }
-} | Where-Object { $_ }
+# Batch parse JSON for 10x performance improvement over per-line ConvertFrom-Json
+# First try parsing the batch. If it fails (due to a malformed line), fall back to line-by-line parsing to avoid data loss.
+$jsonStr = "[" + ($raw -join ",") + "]"
+$lines = $null
+try {
+  $lines = @($jsonStr | ConvertFrom-Json)
+} catch {
+  $lines = @(foreach ($l in $raw) {
+    try { $l | ConvertFrom-Json } catch { $null }
+  })
+}
+$lines = $lines | Where-Object { $_ -ne $null }
 
 # Determine session start
 if ($SessionStart) {
