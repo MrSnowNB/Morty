@@ -112,17 +112,17 @@ foreach ($e in $entries) {
 
   if (-not $tasks.ContainsKey($tid)) {
     $tasks[$tid] = [ordered]@{
-      steps   = [System.Collections.Generic.List[object]]::new()
+      steps   = @()
       outcome = $null
     }
   }
 
   $shape = Get-ArgShape ([string]$e.summary)
-  $tasks[$tid].steps.Add([ordered]@{
+  $tasks[$tid].steps += [ordered]@{
     tool      = [string]$e.tool
     arg_shape = $shape
     exit_status = if ($e.exit_status) { [string]$e.exit_status } else { "ok" }
-  })
+  }
 
   # Also inherit outcome from the boundary
   if ($boundaryMap.ContainsKey($tid) -and $boundaryMap[$tid].outcome) {
@@ -157,7 +157,7 @@ foreach ($tid in $tasks.Keys) {
       fail_count             = 0
       partial_count          = 0
       total_step_count       = 0
-      sample_task_ids        = [System.Collections.Generic.List[string]]::new()
+      sample_task_ids        = @()
       representative_summary = ($t.steps | ForEach-Object { $_.tool }) -join " → "
     }
   }
@@ -169,7 +169,7 @@ foreach ($tid in $tasks.Keys) {
   elseif ($t.outcome -eq "partial") { $agg[$sig].partial_count++ }
 
   if ($agg[$sig].sample_task_ids.Count -lt 5) {
-    $agg[$sig].sample_task_ids.Add($tid)
+    $agg[$sig].sample_task_ids += $tid
   }
 }
 
