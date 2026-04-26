@@ -33,13 +33,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$fails = @()
-$warns = @()
-$oks   = @()
+# Bolt optimization: Using [System.Collections.Generic.List[object]] and .Add()
+# instead of standard arrays (@()) and += to avoid O(n^2) performance bottleneck
+# from repeated array reallocations when aggregating results.
+$fails = [System.Collections.Generic.List[object]]::new()
+$warns = [System.Collections.Generic.List[object]]::new()
+$oks   = [System.Collections.Generic.List[object]]::new()
 
-function Add-Ok   { param([string]$name, [string]$detail) $script:oks   += [pscustomobject]@{ name=$name; detail=$detail } }
-function Add-Warn { param([string]$name, [string]$detail, [string]$fix) $script:warns += [pscustomobject]@{ name=$name; detail=$detail; fix=$fix } }
-function Add-Fail { param([string]$name, [string]$detail, [string]$fix) $script:fails += [pscustomobject]@{ name=$name; detail=$detail; fix=$fix } }
+function Add-Ok   { param([string]$name, [string]$detail) $script:oks.Add([pscustomobject]@{ name=$name; detail=$detail }) }
+function Add-Warn { param([string]$name, [string]$detail, [string]$fix) $script:warns.Add([pscustomobject]@{ name=$name; detail=$detail; fix=$fix }) }
+function Add-Fail { param([string]$name, [string]$detail, [string]$fix) $script:fails.Add([pscustomobject]@{ name=$name; detail=$detail; fix=$fix }) }
 
 # ---------------------------------------------------------------------------
 # Check 1: CLAUDE_PROJECT_DIR is set AND expands to a real directory
