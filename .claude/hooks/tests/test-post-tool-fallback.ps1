@@ -11,7 +11,8 @@
 # Exits 0 on pass, 1 on any failure. Prints a summary table.
 
 $ErrorActionPreference = "Stop"
-$failures = @()
+# Bolt optimization: Use Generic List instead of array concatenation (+=) to avoid O(n^2) reallocation overhead.
+$failures = [System.Collections.Generic.List[object]]::new()
 
 function Assert-Equal {
   param($expected, $actual, [string]$name)
@@ -21,7 +22,7 @@ function Assert-Equal {
     Write-Host "  FAIL  $name" -ForegroundColor Red
     Write-Host "        expected: $expected"
     Write-Host "        actual:   $actual"
-    $script:failures += $name
+    $script:failures.Add($name)
   }
 }
 
