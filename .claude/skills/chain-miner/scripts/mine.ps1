@@ -39,7 +39,7 @@ try {
     try { $line | ConvertFrom-Json } catch { $null }
   })
 }
-$entries = $entries | Where-Object { $_ -ne $null }
+$entries = if ($entries) { @(@($entries).Where({ $_ -ne $null })) } else { @() }
 
 # --- Normalize an argument string into an arg_shape --------------------------
 function Get-ArgShape {
@@ -63,9 +63,7 @@ function Get-ArgShape {
 # (e.g. when agent runs inside a different task boundary).
 
 # Collect all boundary entries
-$boundaries = @($entries | Where-Object {
-  $_ -and ($_.kind -eq "task_begin" -or $_.kind -eq "task_end")
-})
+$boundaries = if ($entries) { @(@($entries).Where({ $_ -and ($_.kind -eq "task_begin" -or $_.kind -eq "task_end") })) } else { @() }
 
 # Build a map: task_id → { begin_ts, end_ts, outcome }
 $boundaryMap = @{}
@@ -145,7 +143,7 @@ function Get-Sha8 {
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($s)
   $hash  = $sha.ComputeHash($bytes)
-  ($hash | ForEach-Object { $_.ToString('x2') }) -join '' | ForEach-Object { $_.Substring(0, 8) }
+  [BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant().Substring(0, 8)
 }
 
 $agg = @{}
@@ -154,10 +152,12 @@ foreach ($tid in $tasks.Keys) {
   if ($t.steps.Count -eq 0) { continue }
   if (-not $t.outcome)       { continue }  # unclosed task, skip
 
-  $seqString = ($t.steps | ForEach-Object { "$($_.tool):$($_.arg_shape)" }) -join " | "
+  $stepToolsAndShapes = foreach ($step in $t.steps) { "$($step.tool):$($step.arg_shape)" }
+  $seqString = $stepToolsAndShapes -join " | "
   $sig = Get-Sha8 $seqString
 
   if (-not $agg.ContainsKey($sig)) {
+    $stepTools = foreach ($step in $t.steps) { $step.tool }
     $agg[$sig] = [ordered]@{
       signature              = $sig
       steps                  = $t.steps
@@ -167,7 +167,7 @@ foreach ($tid in $tasks.Keys) {
       partial_count          = 0
       total_step_count       = 0
       sample_task_ids        = [System.Collections.Generic.List[string]]::new()
-      representative_summary = ($t.steps | ForEach-Object { $_.tool }) -join " → "
+      representative_summary = $stepTools -join " → "
     }
   }
 
@@ -210,7 +210,7 @@ $report = [ordered]@{
   journal_path    = $JournalPath
   tail_lines      = $Tail
   tasks_seen      = $tasks.Count
-  tasks_closed    = ($tasks.Values | Where-Object { $_.outcome }).Count
+  tasks_closed    = if ($tasks.Values) { @(@($tasks.Values).Where({ $_.outcome })).Count } else { 0 }
   min_count       = $MinCount
   min_success_rate = $MinSuccessRate
   candidates      = @($candidatesSorted)
