@@ -23,7 +23,8 @@ if (-not (Test-Path $validator)) {
     exit 1
 }
 
-$failures = @()
+# Bolt optimization: Use Generic List instead of array concatenation (+=) to avoid O(n^2) reallocation overhead.
+$failures = [System.Collections.Generic.List[object]]::new()
 
 function New-Fixture {
     param([hashtable]$Settings, [switch]$CreateLogs, [switch]$CreateBrokenPlaceholder, [switch]$CreateSkills)
@@ -107,7 +108,7 @@ function Assert-Contains {
             $sample = $clean.Substring(0, [Math]::Min(400, $clean.Length))
             Write-Host "        $sample" -ForegroundColor DarkGray
         }
-        $script:failures += $TestName
+        $script:failures.Add($TestName)
     }
 }
 
@@ -122,7 +123,7 @@ function Assert-ExitCode {
             $DebugOutput -split "`n" | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
             Write-Host "        --- end ---" -ForegroundColor DarkGray
         }
-        $script:failures += $TestName
+        $script:failures.Add($TestName)
     }
 }
 
