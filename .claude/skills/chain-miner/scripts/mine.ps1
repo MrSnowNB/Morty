@@ -39,7 +39,7 @@ try {
     try { $line | ConvertFrom-Json } catch { $null }
   })
 }
-$entries = if ($entries) { @(@($entries).Where({ $_ -ne $null })) } else { @() }
+$entries = @($entries).Where({ $_ -ne $null })
 
 # --- Normalize an argument string into an arg_shape --------------------------
 function Get-ArgShape {
@@ -63,9 +63,9 @@ function Get-ArgShape {
 # (e.g. when agent runs inside a different task boundary).
 
 # Collect all boundary entries
-$boundaries = if ($entries) { @(@($entries).Where({
+$boundaries = @(@($entries).Where({
   $_ -and ($_.kind -eq "task_begin" -or $_.kind -eq "task_end")
-})) } else { @() }
+}))
 
 # Build a map: task_id → { begin_ts, end_ts, outcome }
 $boundaryMap = @{}
@@ -145,7 +145,7 @@ function Get-Sha8 {
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($s)
   $hash  = $sha.ComputeHash($bytes)
-  return [BitConverter]::ToString($hash).Replace("-", "").ToLowerInvariant().Substring(0, 8)
+  [BitConverter]::ToString($hash).Replace("-", "").ToLowerInvariant().Substring(0, 8)
 }
 
 $agg = @{}
@@ -154,7 +154,7 @@ foreach ($tid in $tasks.Keys) {
   if ($t.steps.Count -eq 0) { continue }
   if (-not $t.outcome)       { continue }  # unclosed task, skip
 
-  $seqString = ($t.steps.ForEach({ "$($_.tool):$($_.arg_shape)" })) -join " | "
+  $seqString = (@($t.steps).ForEach({ "$($_.tool):$($_.arg_shape)" })) -join " | "
   $sig = Get-Sha8 $seqString
 
   if (-not $agg.ContainsKey($sig)) {
@@ -167,7 +167,7 @@ foreach ($tid in $tasks.Keys) {
       partial_count          = 0
       total_step_count       = 0
       sample_task_ids        = [System.Collections.Generic.List[string]]::new()
-      representative_summary = ($t.steps.ForEach({ $_.tool })) -join " → "
+      representative_summary = (@($t.steps).ForEach({ $_.tool })) -join " → "
     }
   }
 
@@ -210,7 +210,7 @@ $report = [ordered]@{
   journal_path    = $JournalPath
   tail_lines      = $Tail
   tasks_seen      = $tasks.Count
-  tasks_closed    = ($tasks.Values.Where({ $_.outcome })).Count
+  tasks_closed    = (@($tasks.Values).Where({ $_.outcome })).Count
   min_count       = $MinCount
   min_success_rate = $MinSuccessRate
   candidates      = @($candidatesSorted)

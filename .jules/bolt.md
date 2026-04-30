@@ -6,6 +6,10 @@
 **Learning:** In PowerShell scripts reading large JSON Lines logs (like `morty-journal.jsonl`), running `ConvertFrom-Json` inside a line-by-line loop is extremely slow due to the overhead of the cmdlet invocation per line.
 **Action:** For large read operations of multiple JSON objects, batch them by wrapping in array brackets (`"[" + ($lines -join ",") + "]"`) and running `ConvertFrom-Json` once. This provides up to a 10x performance improvement in execution time.
 
-## 2026-04-27 - PowerShell Pipeline Overhead
-**Learning:** In PowerShell scripts, using pipeline commands like `Where-Object` and `ForEach-Object` introduces significant overhead due to context switching and object wrapping, especially for large arrays. Additionally, piping bytes to create hex strings is extremely slow compared to native framework methods.
-**Action:** Always prefer native collection methods like `.Where({})` and `.ForEach({})` for collection processing. For string conversion of byte arrays, use native .NET classes like `[BitConverter]::ToString($hash).Replace("-", "").ToLowerInvariant()`.
+## 2024-05-18 - PowerShell Array Concatenation Bottleneck (Boot Validation)
+**Learning:** Found remaining instances of `+=` array concatenation (`$array += $item`) in `.claude/hooks/boot-validation.ps1` and associated test scripts. Using `+=` causes an O(n^2) performance bottleneck due to repeated array reallocation, which is especially noticeable when aggregating numerous validation results or test failures.
+**Action:** Converted `$oks`, `$warns`, `$fails`, and `$failures` arrays to `[System.Collections.Generic.List[object]]::new()` and used the `.Add()` method. Always use generic lists and `.Add()` for dynamically growing collections in PowerShell.
+
+## 2026-05-20 - PowerShell Pipeline Overhead Bottleneck
+**Learning:** In PowerShell scripts processing large collections (like `mine.ps1`), using pipeline operators (`| Where-Object`, `| ForEach-Object`) introduces significant overhead per item compared to native array methods (`.Where()`, `.ForEach()`). Similarly, converting bytes to hex strings via `| ForEach-Object { $_.ToString('x2') }` is much slower than `[BitConverter]::ToString()`.
+**Action:** Always use native array methods like `@($collection).Where({ ... })` and `@($collection).ForEach({ ... })` instead of `Where-Object` and `ForEach-Object` in performance-critical code. Ensure the collection is wrapped in an array `@()` if there's a risk of it being `$null`. Use `[BitConverter]::ToString()` for fast byte-to-hex conversions.
