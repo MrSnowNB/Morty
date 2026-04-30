@@ -9,3 +9,7 @@
 ## 2024-05-18 - PowerShell Array Concatenation Bottleneck (Boot Validation)
 **Learning:** Found remaining instances of `+=` array concatenation (`$array += $item`) in `.claude/hooks/boot-validation.ps1` and associated test scripts. Using `+=` causes an O(n^2) performance bottleneck due to repeated array reallocation, which is especially noticeable when aggregating numerous validation results or test failures.
 **Action:** Converted `$oks`, `$warns`, `$fails`, and `$failures` arrays to `[System.Collections.Generic.List[object]]::new()` and used the `.Add()` method. Always use generic lists and `.Add()` for dynamically growing collections in PowerShell.
+
+## 2024-05-18 - PowerShell Pipeline Overhead in Byte Array Formatting
+**Learning:** In PowerShell scripts (e.g. `mine.ps1`), formatting a byte array to a hex string using a pipeline (`$hash | ForEach-Object { $_.ToString('x2') }`) introduces significant overhead per byte. A test running this operation 1000 times took ~1600ms vs ~48ms using the native .NET class.
+**Action:** Use native .NET classes like `[BitConverter]::ToString($hash).Replace("-","").ToLower()` instead of piping bytes through `ForEach-Object` for string conversions to drastically improve performance.

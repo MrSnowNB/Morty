@@ -145,7 +145,7 @@ function Get-Sha8 {
   $sha = [System.Security.Cryptography.SHA256]::Create()
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($s)
   $hash  = $sha.ComputeHash($bytes)
-  ($hash | ForEach-Object { $_.ToString('x2') }) -join '' | ForEach-Object { $_.Substring(0, 8) }
+  [BitConverter]::ToString($hash).Replace("-","").ToLower().Substring(0,8)
 }
 
 $agg = @{}

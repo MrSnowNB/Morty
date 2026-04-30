@@ -74,7 +74,7 @@ For large files, use the first 8 hex chars of SHA256 instead:
 $sha   = [System.Security.Cryptography.SHA256]::Create()
 $bytes = [System.IO.File]::ReadAllBytes($path)
 $hash  = $sha.ComputeHash($bytes)
-(($hash | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 8)
+[BitConverter]::ToString($hash).Replace("-","").ToLower().Substring(0, 8)
 ```
 
 ## Failure Recovery
