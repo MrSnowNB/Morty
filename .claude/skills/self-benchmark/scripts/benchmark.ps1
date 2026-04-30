@@ -25,7 +25,7 @@ try {
     try { $l | ConvertFrom-Json } catch { $null }
   })
 }
-$lines = $lines | Where-Object { $_ -ne $null }
+$lines = if ($lines) { @(@($lines).Where({ $_ -ne $null })) } else { @() }
 
 # Determine session start
 if ($SessionStart) {
@@ -35,20 +35,20 @@ if ($SessionStart) {
   $startDt = if ($first) { [DateTime]::Parse($first.ts).ToUniversalTime() } else { [DateTime]::UtcNow.AddHours(-24) }
 }
 
-$sessionLines = $lines | Where-Object { [DateTime]::Parse($_.ts).ToUniversalTime() -ge $startDt }
+$sessionLines = if ($lines) { @(@($lines).Where({ [DateTime]::Parse($_.ts).ToUniversalTime() -ge $startDt })) } else { @() }
 
 # --- Metric 2: Tool Error Rate ---
-$toolCalls = $sessionLines | Where-Object { $_.kind -eq 'tool_call' }
-$errorCalls = $toolCalls | Where-Object { $_.exit_status -eq 'error' }
+$toolCalls = if ($sessionLines) { @(@($sessionLines).Where({ $_.kind -eq 'tool_call' })) } else { @() }
+$errorCalls = if ($toolCalls) { @(@($toolCalls).Where({ $_.exit_status -eq 'error' })) } else { @() }
 $toolErrorRate = if ($toolCalls.Count -gt 0) { [math]::Round($errorCalls.Count / $toolCalls.Count, 3) } else { 0 }
 
 # --- Metric 3: Task Completion Rate ---
-$taskBegins = $sessionLines | Where-Object { $_.kind -eq 'task_begin' }
-$taskSuccesses = $sessionLines | Where-Object { $_.kind -eq 'task_end' -and $_.exit_status -eq 'success' }
+$taskBegins = if ($sessionLines) { @(@($sessionLines).Where({ $_.kind -eq 'task_begin' })) } else { @() }
+$taskSuccesses = if ($sessionLines) { @(@($sessionLines).Where({ $_.kind -eq 'task_end' -and $_.exit_status -eq 'success' })) } else { @() }
 $completionRate = if ($taskBegins.Count -gt 0) { [math]::Round($taskSuccesses.Count / $taskBegins.Count, 3) } else { 0 }
 
 # --- Metric 4: Chain Yield (raw counts only — miner called separately) ---
-$closedTasks = $sessionLines | Where-Object { $_.kind -eq 'task_end' -and $_.exit_status -eq 'success' }
+$closedTasks = if ($sessionLines) { @(@($sessionLines).Where({ $_.kind -eq 'task_end' -and $_.exit_status -eq 'success' })) } else { @() }
 
 $result = [ordered]@{
   ts                 = (Get-Date).ToUniversalTime().ToString("o")
