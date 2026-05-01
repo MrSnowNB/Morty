@@ -59,7 +59,8 @@ if (-not $taskId) {
         try { $line | ConvertFrom-Json } catch { $null }
       })
     }
-    $allEntries = $allEntries | Where-Object { $_ -ne $null }
+    # Bolt optimization: Use native array methods instead of pipeline overhead
+    $allEntries = if ($allEntries) { @(@($allEntries).Where({ $_ -ne $null })) } else { @() }
 
     # Pre-index closed task_ids for O(n) lookup instead of O(n*m) nested scan.
     $closedTaskIds = @{}

@@ -36,7 +36,8 @@ Write-Host "=== 1. Demonstrate the .Reverse() pitfall ===" -ForegroundColor Cyan
 # Either way the foreach body never ran \u2014 the bug. This test accepts either
 # symptom as proof of the pitfall; what matters is that the return value is
 # not a usable reversed collection.
-$arr = 1..5 | Where-Object { $_ -gt 0 }
+# Bolt optimization: Use native array methods instead of pipeline overhead
+$arr = @(1..5).Where({ $_ -gt 0 })
 $reverseReturn = $null
 $threw = $false
 try {
@@ -50,7 +51,8 @@ Assert-Equal $true $isUnsafe ".Reverse() on a filtered pipeline is unsafe (retur
 
 Write-Host ""
 Write-Host "=== 2. Correct approach: [Array]::Reverse on @() wrapped array ===" -ForegroundColor Cyan
-$arr2 = @(1..5 | Where-Object { $_ -gt 0 })
+# Bolt optimization: Use native array methods instead of pipeline overhead
+$arr2 = @(@(1..5).Where({ $_ -gt 0 }))
 [Array]::Reverse($arr2)
 Assert-Equal 5 $arr2[0] "first element after [Array]::Reverse is 5"
 Assert-Equal 1 $arr2[4] "last element after [Array]::Reverse is 1"
@@ -107,6 +109,7 @@ if ($failures.Count -eq 0) {
   exit 0
 } else {
   Write-Host "$($failures.Count) test(s) failed:" -ForegroundColor Red
-  $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+  # Bolt optimization: Avoid pipeline overhead for faster execution
+  if ($failures) { foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red } }
   exit 1
 }

@@ -59,18 +59,24 @@ if (-not $items) {
 $top5 = $items | Select-Object -First 5
 
 if ($Json) {
-    $output = $top5 | ForEach-Object {
-        $fmt = Format-Description $_.description
-        $source = if ($_.source.'#text') { $_.source.'#text' } else { 'Unknown' }
-        [PSCustomObject]@{
-            title       = $fmt.Title
-            link        = $_.link
-            description = $fmt.Source
-            source      = $source
-            published   = $_.pubDate
-            cluster     = $_.description
-        }
-    } | ConvertTo-Json -Depth 4
+    # Bolt optimization: Use native array methods instead of pipeline overhead
+    $mapped = if ($top5) {
+        @(@($top5).ForEach({
+            $fmt = Format-Description $_.description
+            $source = if ($_.source.'#text') { $_.source.'#text' } else { 'Unknown' }
+            [PSCustomObject]@{
+                title       = $fmt.Title
+                link        = $_.link
+                description = $fmt.Source
+                source      = $source
+                published   = $_.pubDate
+                cluster     = $_.description
+            }
+        }))
+    } else {
+        @()
+    }
+    $output = $mapped | ConvertTo-Json -Depth 4
     Write-Output $output
 }
 else {
