@@ -82,6 +82,7 @@ if ($failures.Count -eq 0) {
   [Environment]::Exit(0)
 } else {
   Write-Host "$($failures.Count) test(s) failed:" -ForegroundColor Red
-  $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+  # Bolt optimization: Avoid pipeline overhead for faster execution
+  if ($failures) { foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red } }
   [Environment]::Exit(1)
 }

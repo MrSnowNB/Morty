@@ -120,7 +120,9 @@ function Assert-ExitCode {
         Write-Host "  FAIL  $TestName (expected exit $Expected, got $Actual)" -ForegroundColor Red
         if ($DebugOutput) {
             Write-Host "        --- validator output ---" -ForegroundColor DarkGray
-            $DebugOutput -split "`n" | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+            # Bolt optimization: Avoid pipeline overhead for faster execution
+            $lines = $DebugOutput -split "`n"
+            if ($lines) { foreach ($line in $lines) { Write-Host "        $line" -ForegroundColor DarkGray } }
             Write-Host "        --- end ---" -ForegroundColor DarkGray
         }
         $script:failures.Add($TestName)
@@ -201,6 +203,7 @@ if ($failures.Count -eq 0) {
     exit 0
 } else {
     Write-Host "$($failures.Count) test(s) failed:" -ForegroundColor Red
-    $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+    # Bolt optimization: Avoid pipeline overhead for faster execution
+    if ($failures) { foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red } }
     exit 1
 }
