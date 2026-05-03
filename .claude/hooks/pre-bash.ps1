@@ -9,9 +9,13 @@ if (-not $cmd) { exit 0 }
 $denyFile = $env:MORTY_DENYLIST
 if (-not $denyFile) { $denyFile = "$env:USERPROFILE\.claude\skills\safe-bash\references\denylist.yaml" }
 if (-not (Test-Path $denyFile)) { exit 0 }
-$patterns = Get-Content $denyFile |
-  Where-Object { $_ -match '^\s*-\s*"(.+)"\s*$' } |
-  ForEach-Object { ($_ -replace '^\s*-\s*"(.+)"\s*$', '$1') }
+# Optimization: avoid pipeline overhead (Where-Object, ForEach-Object) on the hot-path
+$lines = Get-Content $denyFile
+$patterns = if ($lines) {
+  @(@($lines).Where({ $_ -match '^\s*-\s*"(.+)"\s*$' }).ForEach({ ($_ -replace '^\s*-\s*"(.+)"\s*$', '$1') }))
+} else {
+  @()
+}
 foreach ($p in $patterns) {
   if ($cmd -imatch $p) {
     Write-Output (@{ decision = "block"; reason = "Morty denylist matched pattern: $p" } | ConvertTo-Json -Compress)
