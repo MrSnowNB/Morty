@@ -197,7 +197,7 @@ foreach ($s in $expectedSkills) {
             "Restore the $s skill or remove the dependency."
     }
 }
-if ($warns.Count -eq 0 -or -not ($warns | Where-Object { $_.name -eq 'expected skill present' })) {
+if ($warns.Count -eq 0 -or -not (@($warns).Where({ $_.name -eq 'expected skill present' }))) {
     Add-Ok 'expected skills present' ($expectedSkills -join ', ')
 }
 

@@ -59,7 +59,7 @@ if (-not $taskId) {
         try { $line | ConvertFrom-Json } catch { $null }
       })
     }
-    $allEntries = $allEntries | Where-Object { $_ -ne $null }
+    $allEntries = @($allEntries).Where({ $_ -ne $null })
 
     # Pre-index closed task_ids for O(n) lookup instead of O(n*m) nested scan.
     $closedTaskIds = @{}
