@@ -197,7 +197,13 @@ foreach ($s in $expectedSkills) {
             "Restore the $s skill or remove the dependency."
     }
 }
-if ($warns.Count -eq 0 -or -not ($warns | Where-Object { $_.name -eq 'expected skill present' })) {
+# ⚡ Bolt Optimization: Replaced slow pipeline `Where-Object` with native array method `.Where()` for faster execution
+$filteredWarns = if ($warns) {
+  @(@($warns).Where({ $_.name -eq 'expected skill present' }))
+} else {
+  @()
+}
+if ($warns.Count -eq 0 -or -not $filteredWarns) {
     Add-Ok 'expected skills present' ($expectedSkills -join ', ')
 }
 
