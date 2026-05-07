@@ -13,3 +13,7 @@
 ## 2026-05-20 - PowerShell Pipeline Overhead Bottleneck
 **Learning:** In PowerShell scripts processing large collections (like `mine.ps1`), using pipeline operators (`| Where-Object`, `| ForEach-Object`) introduces significant overhead per item compared to native array methods (`.Where()`, `.ForEach()`). Similarly, converting bytes to hex strings via `| ForEach-Object { $_.ToString('x2') }` is much slower than `[BitConverter]::ToString()`.
 **Action:** Always use native array methods like `@($collection).Where({ ... })` and `@($collection).ForEach({ ... })` instead of `Where-Object` and `ForEach-Object` in performance-critical code. Ensure the collection is wrapped in an array `@()` if there's a risk of it being `$null`. Use `[BitConverter]::ToString()` for fast byte-to-hex conversions.
+
+## 2024-05-21 - PowerShell Pipeline Overhead Bottleneck (Pre-bash hook)
+**Learning:** The `.claude/hooks/pre-bash.ps1` hook is a performance hot-path that runs before every single bash command executed by the agent. Pipeline overhead in this script, such as parsing the denylist via `Where-Object` and `ForEach-Object`, can cause noticeable delays.
+**Action:** Replaced pipeline operators with native array methods `.Where()` and `.ForEach()` in `pre-bash.ps1`. When writing scripts that execute frequently or are blocking (like pre-hooks), strictly avoid pipelines and favor native array methods.
